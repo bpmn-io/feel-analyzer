@@ -1,0 +1,30 @@
+# Source files
+src/
+test/
+*.test.ts
+*.spec.ts
+
+# Configuration
+tsconfig.json
+.eslintrc*
+.prettierrc*
+
+# CI/CD
+.github/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Docs
+docs/
+*.md
+!README.md
+
+# Tests
+coverage/
+.nyc_output/

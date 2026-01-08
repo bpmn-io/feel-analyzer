@@ -1,0 +1,38 @@
+{
+  "name": "feel-analyzer",
+  "version": "0.1.0",
+  "description": "A library to analyze FEEL (Friendly Enough Expression Language) expressions",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "mocha",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "feel",
+    "dmn",
+    "expression",
+    "analyzer",
+    "parser",
+    "bpmn"
+  ],
+  "author": "bpmn.io",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bpmn-io/feel-analyzer.git"
+  },
+  "devDependencies": {
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^25.0.3",
+    "chai": "^6.2.2",
+    "mocha": "^11.7.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "feelin": "^5.1.0"
+  }
+}
