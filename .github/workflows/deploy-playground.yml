@@ -35,8 +35,8 @@ jobs:
       working-directory: ./playground
       run: npm run build
       env:
-        # Set base path for GitHub Pages (/<repo-name>/)
-        BASE_URL: /feel-analyzer/
+        # Set base path for GitHub Pages
+        BASE_URL: /
     
     - name: Deploy to gh-pages branch
       run: |
