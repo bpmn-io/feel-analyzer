@@ -1,0 +1,59 @@
+{
+  "name": "@bpmn-io/feel-analyzer",
+  "version": "0.0.1",
+  "description": "FEEL expression analyzer",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "all": "run-s lint test build",
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "test": "mocha",
+    "prepublishOnly": "run-s lint test build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bpmn-io/feel-analyzer"
+  },
+  "keywords": [
+    "feel",
+    "analyzer",
+    "dmn",
+    "bpmn-io"
+  ],
+  "author": {
+    "name": "bpmn.io contributors",
+    "url": "https://github.com/bpmn-io"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/chai": "^5.0.1",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.10.5",
+    "chai": "^6.0.0",
+    "eslint": "^9.11.1",
+    "eslint-plugin-bpmn-io": "^2.0.2",
+    "mocha": "^11.0.0",
+    "npm-run-all2": "^8.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.52.0",
+    "vite": "^6.0.7",
+    "vite-plugin-dts": "^4.3.0"
+  },
+  "dependencies": {
+    "lezer-feel": "^2.1.0"
+  }
+}

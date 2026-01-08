@@ -1,0 +1,6 @@
+{
+  "spec": "test/**/*.spec.ts",
+  "require": ["tsx/cjs"],
+  "loader": "tsx",
+  "node-option": ["import=tsx/esm"]
+}

@@ -1,0 +1,50 @@
+name: Deploy Playground
+
+on:
+  push:
+    branches: [ playground ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '24.x'
+        cache: 'npm'
+    
+    - name: Install root dependencies
+      run: npm ci
+    
+    - name: Build library
+      run: npm run build
+    
+    - name: Install playground dependencies
+      working-directory: ./playground
+      run: npm ci
+    
+    - name: Build playground
+      working-directory: ./playground
+      run: npm run build
+      env:
+        # Set base path for GitHub Pages (/<repo-name>/)
+        BASE_URL: /feel-analyzer/
+    
+    - name: Deploy to gh-pages branch
+      run: |
+        cd playground/dist
+        git init
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add -A
+        git commit -m "Deploy playground from ${GITHUB_SHA}"
+        git push -f https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:gh-pages
+
