@@ -1,8 +1,32 @@
 import { FeelAnalyzer } from "../../src/FeelAnalyzer.js";
-import { testCases } from "./testCases";
+import { examples } from "./examples";
 
-export function TestCasesView() {
+export function Examples() {
   const analyzer = new FeelAnalyzer();
+
+  // Helper function to compare arrays
+  const arraysEqual = (a?: string[], b?: string[]) => {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+    if (a.length !== b.length) return false;
+    const sortedA = [...a].sort();
+    const sortedB = [...b].sort();
+    return sortedA.every((val, idx) => val === sortedB[idx]);
+  };
+
+  // Helper function to compare output types
+  const outputTypesEqual = (actual: any, expected: any) => {
+    if (!actual && !expected) return true;
+    if (!actual || !expected) return false;
+    if (actual.type !== expected.type) return false;
+
+    // For context types, compare keys
+    if (actual.type === "context" && actual.keys && expected.keys) {
+      return arraysEqual(actual.keys, expected.keys);
+    }
+
+    return true;
+  };
 
   return (
     <div class="test-cases-container">
@@ -23,10 +47,25 @@ export function TestCasesView() {
             </tr>
           </thead>
           <tbody>
-            {testCases.map((testCase, index) => {
-              const result = analyzer.analyze(testCase.expression, {
-                context: testCase.context,
+            {examples.map((example, index) => {
+              const result = analyzer.analyze(example.expression, {
+                context: example.context,
               });
+
+              // Compare results with expected
+              const neededInputsMatch = example.expected?.neededInputs
+                ? arraysEqual(
+                    result.neededInputs,
+                    example.expected.neededInputs
+                  )
+                : true;
+
+              const outputTypeMatch = example.expected?.outputType
+                ? outputTypesEqual(
+                    result.outputType,
+                    example.expected.outputType
+                  )
+                : true;
 
               // Combine input names with their types (if not unknown)
               const inputsWithTypes =
@@ -64,20 +103,20 @@ export function TestCasesView() {
               // Build playground URL with expression and context
               const playgroundUrl = (() => {
                 const params = new URLSearchParams();
-                params.set("expression", testCase.expression);
+                params.set("expression", example.expression);
 
                 // Build context string with given context and needed inputs
                 let contextString = "";
 
-                if (testCase.context) {
+                if (example.context) {
                   contextString += "// given context\n";
-                  contextString += JSON.stringify(testCase.context, null, 2);
+                  contextString += JSON.stringify(example.context, null, 2);
                 }
 
                 if (result.neededInputs && result.neededInputs.length > 0) {
                   // Filter out inputs that are already in the given context
-                  const contextKeys = testCase.context
-                    ? Object.keys(testCase.context)
+                  const contextKeys = example.context
+                    ? Object.keys(example.context)
                     : [];
                   const missingInputs = result.neededInputs.filter((input) => {
                     const rootVar = input.split(".")[0];
@@ -154,10 +193,10 @@ export function TestCasesView() {
                 <tr key={index}>
                   <td>
                     <div class="expression-cell">
-                      {testCase.description && (
+                      {example.description && (
                         <span
                           class="info-icon-wrapper"
-                          data-tooltip={testCase.description}
+                          data-tooltip={example.description}
                         >
                           <svg
                             class="info-icon"
@@ -169,31 +208,47 @@ export function TestCasesView() {
                           </svg>
                         </span>
                       )}
-                      <code>{testCase.expression}</code>
+                      <code>{example.expression}</code>
                     </div>
                   </td>
                   <td>
-                    {testCase.context ? (
+                    {example.context ? (
                       <code class="context-code">
-                        {JSON.stringify(testCase.context)}
+                        {JSON.stringify(example.context)}
                       </code>
                     ) : (
                       <span class="empty">—</span>
                     )}
                   </td>
-                  <td>
+                  <td class={neededInputsMatch ? "match" : "mismatch"}>
                     {uniqueInputs.length > 0 ? (
                       <code class="inputs-code">{uniqueInputs.join(", ")}</code>
                     ) : (
                       <span class="empty">none</span>
                     )}
+                    {!neededInputsMatch && example.expected?.neededInputs && (
+                      <div class="expected-value">
+                        Expected:{" "}
+                        <code>{example.expected.neededInputs.join(", ")}</code>
+                      </div>
+                    )}
                   </td>
-                  <td>
+                  <td class={outputTypeMatch ? "match" : "mismatch"}>
                     <code class="type-code">
                       {result.outputType?.type || "unknown"}
                       {result.outputType?.keys &&
                         ` {${result.outputType.keys.join(", ")}}`}
                     </code>
+                    {!outputTypeMatch && example.expected?.outputType && (
+                      <div class="expected-value">
+                        Expected:{" "}
+                        <code>
+                          {example.expected.outputType.type}
+                          {example.expected.outputType.keys &&
+                            ` {${example.expected.outputType.keys.join(", ")}}`}
+                        </code>
+                      </div>
+                    )}
                   </td>
                   <td>
                     <a

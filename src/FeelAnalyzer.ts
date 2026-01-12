@@ -275,6 +275,175 @@ export class FeelAnalyzer {
         return;
       }
 
+      // Handle ForExpression (for x in list return ...)
+      if (nodeName === 'ForExpression') {
+
+        // Create new scope for loop variables
+        const newScope = new Set<string>();
+
+        // First, extract loop variable names from InExpressions
+        const inExpressionsNode = node.getChild('InExpressions');
+        if (inExpressionsNode) {
+          let inExprChild = inExpressionsNode.firstChild;
+          while (inExprChild) {
+            if (inExprChild.name === 'InExpression') {
+
+              // Get the loop variable name
+              const nameNode = inExprChild.getChild('Name');
+              if (nameNode) {
+                const identifierNode = nameNode.getChild('Identifier');
+                if (identifierNode) {
+                  const varName = source.substring(
+                    identifierNode.from,
+                    identifierNode.to
+                  );
+                  newScope.add(varName);
+                }
+              }
+
+              // Visit the IterationContext (what we're iterating over)
+              const iterationContextNode =
+                inExprChild.getChild('IterationContext');
+              if (iterationContextNode) {
+                visit(iterationContextNode, inFilterContext);
+              }
+            }
+            inExprChild = inExprChild.nextSibling;
+          }
+        }
+
+        // Push the new scope with loop variables
+        localScopes.push(newScope);
+
+        // Visit the return expression (everything after the InExpressions)
+        // Don't pass inFilterContext - for expressions create their own scope
+        let child = node.firstChild;
+        while (child) {
+          if (
+            child.name !== 'for' &&
+            child.name !== 'InExpressions' &&
+            child.name !== 'return'
+          ) {
+            visit(child, false);
+          }
+          child = child.nextSibling;
+        }
+
+        localScopes.pop();
+        return;
+      }
+
+      // Handle QuantifiedExpression (some/every x in list satisfies ...)
+      if (nodeName === 'QuantifiedExpression') {
+
+        // Create new scope for loop variables
+        const newScope = new Set<string>();
+
+        // First, extract loop variable names from InExpressions
+        const inExpressionsNode = node.getChild('InExpressions');
+        if (inExpressionsNode) {
+          let inExprChild = inExpressionsNode.firstChild;
+          while (inExprChild) {
+            if (inExprChild.name === 'InExpression') {
+
+              // Get the loop variable name
+              const nameNode = inExprChild.getChild('Name');
+              if (nameNode) {
+                const identifierNode = nameNode.getChild('Identifier');
+                if (identifierNode) {
+                  const varName = source.substring(
+                    identifierNode.from,
+                    identifierNode.to
+                  );
+                  newScope.add(varName);
+                }
+              }
+
+              // Visit the iteration context (what we're iterating over)
+              // This is NOT in IterationContext node for QuantifiedExpression
+              let exprChild = inExprChild.firstChild;
+              while (exprChild) {
+                if (
+                  exprChild.name !== 'Name' &&
+                  exprChild.name !== 'in' &&
+                  exprChild.name !== 'Identifier'
+                ) {
+                  visit(exprChild, inFilterContext);
+                }
+                exprChild = exprChild.nextSibling;
+              }
+            }
+            inExprChild = inExprChild.nextSibling;
+          }
+        }
+
+        // Push the new scope with loop variables
+        localScopes.push(newScope);
+
+        // Visit the satisfies expression (everything after InExpressions and satisfies keyword)
+        // Don't pass inFilterContext - quantified expressions create their own scope
+        let child = node.firstChild;
+        while (child) {
+          if (
+            child.name !== 'some' &&
+            child.name !== 'every' &&
+            child.name !== 'InExpressions' &&
+            child.name !== 'satisfies'
+          ) {
+            visit(child, false);
+          }
+          child = child.nextSibling;
+        }
+
+        localScopes.pop();
+        return;
+      }
+
+      // Handle FunctionDefinition (function(a, b) ...)
+      if (nodeName === 'FunctionDefinition') {
+
+        // Create new scope for function parameters
+        const newScope = new Set<string>();
+
+        // Extract parameter names from FormalParameters
+        const formalParametersNode = node.getChild('FormalParameters');
+        if (formalParametersNode) {
+          let paramChild = formalParametersNode.firstChild;
+          while (paramChild) {
+            if (paramChild.name === 'FormalParameter') {
+              const paramNameNode = paramChild.getChild('ParameterName');
+              if (paramNameNode) {
+                const nameNode = paramNameNode.getChild('Name');
+                if (nameNode) {
+                  const identifierNode = nameNode.getChild('Identifier');
+                  if (identifierNode) {
+                    const varName = source.substring(
+                      identifierNode.from,
+                      identifierNode.to
+                    );
+                    newScope.add(varName);
+                  }
+                }
+              }
+            }
+            paramChild = paramChild.nextSibling;
+          }
+        }
+
+        // Push the new scope with parameters
+        localScopes.push(newScope);
+
+        // Visit the function body
+        // Don't pass inFilterContext - function definitions create their own scope
+        const functionBodyNode = node.getChild('FunctionBody');
+        if (functionBodyNode) {
+          visit(functionBodyNode, false);
+        }
+
+        localScopes.pop();
+        return;
+      }
+
       // Visit children
       let child = node.firstChild;
       while (child) {
@@ -890,6 +1059,11 @@ export class FeelAnalyzer {
 
     // Comparison operators produce boolean
     if (nodeName === 'Comparison') {
+      return { type: 'boolean' };
+    }
+
+    // Quantified expressions (some, every) produce boolean
+    if (nodeName === 'QuantifiedExpression') {
       return { type: 'boolean' };
     }
 
