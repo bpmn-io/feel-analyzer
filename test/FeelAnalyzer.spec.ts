@@ -688,4 +688,117 @@ describe('FeelAnalyzer', function() {
       // expect(result.neededInputs).to.deep.equal([ 'products', 'targetTag' ]);
     });
   });
+
+  describe('Camunda dialect - backtick variables', function() {
+    it('should strip backticks from simple variable names', function() {
+
+      // given
+      const expression = '`test tst` + 1';
+
+      // when
+      const result = analyzer.analyze(expression, { parserDialect: 'camunda' });
+
+      // then
+      expect(result.neededInputs).to.deep.equal([ 'test tst' ]);
+    });
+
+    it('should strip backticks from path expressions', function() {
+
+      // given
+      const expression = 'foo.`bar-baz`';
+
+      // when
+      const result = analyzer.analyze(expression, { parserDialect: 'camunda' });
+
+      // then
+      expect(result.neededInputs).to.deep.equal([ 'foo.bar-baz' ]);
+    });
+
+    it('should handle multiple backtick variables', function() {
+
+      // given
+      const expression = '`first var` + `second var`';
+
+      // when
+      const result = analyzer.analyze(expression, { parserDialect: 'camunda' });
+
+      // then
+      expect(result.neededInputs).to.deep.equal([ 'first var', 'second var' ]);
+    });
+
+    it('should handle backtick variables in context keys', function() {
+
+      // given
+      const expression = '{ `my-key`: 1 }.`my-key`';
+
+      // when
+      const result = analyzer.analyze(expression, { parserDialect: 'camunda' });
+
+      // then
+      // Note: lezer-feel parser doesn't support backtick identifiers in context keys (as of v1.9.0)
+      // This is a known limitation. The key cannot be parsed correctly,
+      // so the variable `my-key` appears as an input rather than being defined in the context.
+      // For now, we just check that the expression doesn't crash the analyzer.
+      expect(result.valid).to.be.true;
+    });
+
+    it('should strip backticks from context output keys for normal identifiers', function() {
+
+      // given
+      const expression = '{ mykey: 1, otherkey: 2 }';
+
+      // when
+      const result = analyzer.analyze(expression, { parserDialect: 'camunda' });
+
+      // then
+      expect(result.outputType?.type).to.equal('context');
+      expect(result.outputType?.keys).to.deep.equal([ 'mykey', 'otherkey' ]);
+    });
+
+    it('should handle backtick variables with special characters', function() {
+
+      // given
+      const expression = '`customer-name` + `order.id`';
+
+      // when
+      const result = analyzer.analyze(expression, { parserDialect: 'camunda' });
+
+      // then
+      expect(result.neededInputs).to.deep.equal([ 'customer-name', 'order.id' ]);
+    });
+
+    it('should correctly parse multi-word built-ins with reserved keywords', function() {
+
+      // given
+      const expression = '`hello world` + 1 + get or else(1, 2)';
+      const builtins = [
+        {
+          name: 'get or else',
+          type: 'function' as const,
+          params: [ { name: 'value' }, { name: 'default' } ],
+        },
+      ];
+
+      // when - without builtins, "get or else" is parsed incorrectly due to "or" keyword
+      const resultWithoutBuiltins = analyzer.analyze(expression, {
+        parserDialect: 'camunda',
+      });
+
+      // when - with builtins, parser context allows "get or else" to be recognized
+      const resultWithBuiltins = analyzer.analyze(expression, {
+        parserDialect: 'camunda',
+        builtins,
+      });
+
+      // then
+      // Without builtins: parser sees "get" as variable, "or" as keyword
+      expect(resultWithoutBuiltins.neededInputs).to.deep.equal([
+        'get',
+        'hello world',
+      ]);
+
+      // With builtins: parser recognizes "get or else" as function name, filters it out
+      expect(resultWithBuiltins.neededInputs).to.deep.equal([ 'hello world' ]);
+    });
+  });
 });

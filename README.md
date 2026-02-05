@@ -100,6 +100,52 @@ analyzer.analyze('order.items[1].price', {
 // }
 ```
 
+### Parser Dialect and Built-ins
+
+The analyzer supports different FEEL dialects and can filter out built-in functions from the required inputs:
+
+```typescript
+import { FeelAnalyzer } from '@bpmn-io/feel-analyzer';
+
+const analyzer = new FeelAnalyzer();
+
+// Using Camunda dialect with built-ins
+const result = analyzer.analyze('get or else(x, "default")', {
+  parserDialect: 'camunda',
+  builtins: [
+    {
+      name: 'get or else',
+      type: 'function',
+      params: [
+        { name: 'value' },
+        { name: 'default' }
+      ]
+    }
+  ]
+});
+
+console.log(result.neededInputs); // ['x'] - 'get or else' is filtered out
+```
+
+For Camunda FEEL, you can use the [@camunda/feel-builtins](https://github.com/camunda/feel-builtins) package:
+
+```typescript
+import { camundaBuiltins } from '@camunda/feel-builtins';
+import { FeelAnalyzer } from '@bpmn-io/feel-analyzer';
+
+const analyzer = new FeelAnalyzer();
+
+const result = analyzer.analyze(
+  'uuid() + " - " + trim(name)',
+  {
+    parserDialect: 'camunda',
+    builtins: camundaBuiltins
+  }
+);
+
+console.log(result.neededInputs); // ['name'] - 'uuid' and 'trim' are filtered out
+```
+
 ## API
 
 ### `analyzer.analyze(expression, options?)`
@@ -110,6 +156,12 @@ Analyzes a FEEL expression and returns detailed information.
 - `expression` (string): The FEEL expression to analyze
 - `options` (optional):
   - `context` (object): Context object for enhanced type inference
+  - `parserDialect` (string): Parser dialect to use - `'camunda'` (default) or `'standard'`
+  - `builtins` (array): Array of built-in function definitions to filter out from required inputs. Each builtin should have:
+    - `name` (string): Function name
+    - `type` (string, optional): Function type (typically `'function'`)
+    - `params` (array, optional): Array of parameter definitions with `name` property
+    - `info` (string, optional): Function documentation
 
 **Returns:**
 - `valid` (boolean): Whether the expression is syntactically valid

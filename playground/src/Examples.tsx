@@ -1,4 +1,5 @@
 import { FeelAnalyzer } from "../../src/FeelAnalyzer.js";
+import { camundaBuiltins } from "@camunda/feel-builtins";
 import { examples } from "./examples";
 
 export function Examples() {
@@ -50,6 +51,7 @@ export function Examples() {
             {examples.map((example, index) => {
               const result = analyzer.analyze(example.expression, {
                 context: example.context,
+                builtins: camundaBuiltins,
               });
 
               // Compare results with expected

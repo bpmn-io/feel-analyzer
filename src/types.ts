@@ -1,4 +1,37 @@
 /**
+ * Built-in function definition
+ */
+export interface Builtin {
+
+  /**
+   * Function name
+   */
+  name: string;
+
+  /**
+   * Function type
+   */
+  type?: 'function';
+
+  /**
+   * Function parameters
+   */
+  params?: Array<{
+    name: string;
+  }>;
+
+  /**
+   * Function documentation
+   */
+  info?: string;
+}
+
+/**
+ * Parser dialect to use
+ */
+export type ParserDialect = 'standard' | 'camunda';
+
+/**
  * Options for analyzing FEEL expressions
  */
 export interface AnalysisOptions {
@@ -12,6 +45,16 @@ export interface AnalysisOptions {
    * Whether to perform strict validation
    */
   strict?: boolean;
+
+  /**
+   * Parser dialect to use (default: 'camunda')
+   */
+  parserDialect?: ParserDialect;
+
+  /**
+   * Built-in functions available in the expression
+   */
+  builtins?: Builtin[];
 }
 
 /**

@@ -3,9 +3,11 @@ import type {
   AnalysisResult,
   OutputType,
   InputType,
+  Builtin,
 } from './types.js';
-import { parser } from 'lezer-feel';
+import { parser, trackVariables } from 'lezer-feel';
 import { SyntaxNode } from '@lezer/common';
+import type { LRParser, ContextTracker } from '@lezer/lr';
 
 /**
  * Analyzer for FEEL expressions
@@ -16,13 +18,24 @@ export class FeelAnalyzer {
    * Analyze a FEEL expression
    *
    * @param expression - The FEEL expression to analyze
-   * @param _options - Optional analysis configuration
+   * @param options - Optional analysis configuration
    * @returns Analysis result
    */
   analyze(expression: string, options?: AnalysisOptions): AnalysisResult {
     try {
-      const tree = parser.parse(expression);
-      const neededInputs = this.extractNeededInputs(tree.topNode, expression);
+
+      // Configure parser based on dialect
+      const configuredParser = this.getConfiguredParser(options);
+      const tree = configuredParser.parse(expression);
+
+      // Extract built-in function names for filtering
+      const builtinNames = this.getBuiltinNames(options?.builtins);
+
+      const neededInputs = this.extractNeededInputs(
+        tree.topNode,
+        expression,
+        builtinNames
+      );
       const inputTypes = this.extractInputTypes(
         tree.topNode,
         expression,
@@ -56,11 +69,77 @@ export class FeelAnalyzer {
   }
 
   /**
+   * Get configured parser based on options
+   */
+  private getConfiguredParser(options?: AnalysisOptions): LRParser {
+    const dialect = options?.parserDialect || 'camunda';
+    const builtins = options?.builtins;
+
+    // Build context object from builtins for the context tracker
+    // This allows the parser to recognize multi-word function names,
+    // even those containing reserved keywords like "get or else"
+    const context: Record<string, number> = {};
+    if (builtins) {
+      for (const builtin of builtins) {
+        context[builtin.name] = 1;
+      }
+    }
+
+    if (dialect === 'standard' && !builtins) {
+      return parser;
+    }
+
+    const config: {
+      dialect?: string;
+      contextTracker?: ContextTracker<unknown>;
+    } = {};
+
+    if (dialect !== 'standard') {
+      config.dialect = dialect;
+    }
+
+    if (builtins && Object.keys(context).length > 0) {
+      config.contextTracker = trackVariables(context);
+    }
+
+    return parser.configure(config);
+  }
+
+  /**
+   * Extract built-in function names from builtins array
+   */
+  private getBuiltinNames(builtins?: Builtin[]): Set<string> {
+    if (!builtins) {
+      return new Set();
+    }
+
+    return new Set(builtins.map((b) => b.name));
+  }
+
+  /**
+   * Strip backticks from identifier names
+   */
+  private stripBackticks(text: string): string {
+    return text.replace(/^`|`$/g, '');
+  }
+
+  /**
    * Extract needed input variables from the AST
    */
-  private extractNeededInputs(node: SyntaxNode, source: string): string[] {
+  private extractNeededInputs(
+      node: SyntaxNode,
+      source: string,
+      builtinNames: Set<string>
+  ): string[] {
     const inputs = new Set<string>();
     const localScopes: Set<string>[] = [ new Set() ]; // Stack of local scopes
+
+    /**
+     * Strip backticks from identifier names
+     */
+    const stripBackticks = (text: string): string => {
+      return text.replace(/^`|`$/g, '');
+    };
 
     /**
      * Recursively collect all parts of a path expression
@@ -75,7 +154,7 @@ export class FeelAnalyzer {
           // Recursively collect from nested path
           parts.push(...collectPathParts(child));
         } else if (child.name === 'VariableName') {
-          const part = source.substring(child.from, child.to);
+          const part = stripBackticks(source.substring(child.from, child.to));
           parts.push(part);
         }
         child = child.nextSibling;
@@ -104,6 +183,41 @@ export class FeelAnalyzer {
     ) => {
       const nodeName = node.name;
 
+      // Handle FunctionInvocation
+      if (nodeName === 'FunctionInvocation') {
+
+        // Get the function name
+        const funcNameNode = node.getChild('VariableName');
+        if (funcNameNode) {
+          const funcName = stripBackticks(
+            source.substring(funcNameNode.from, funcNameNode.to)
+          );
+          const isBuiltin = builtinNames.has(funcName);
+          const isLocal = localScopes.some((scope) => scope.has(funcName));
+
+          // If not a built-in and not locally defined, add as input
+          if (!isBuiltin && !isLocal) {
+            inputs.add(funcName);
+          }
+        }
+
+        // Visit the arguments
+        let child = node.firstChild;
+        while (child) {
+
+          // Skip the function name and parentheses, but visit parameters
+          if (
+            child.name !== 'VariableName' &&
+            child.name !== '(' &&
+            child.name !== ')'
+          ) {
+            visit(child, inFilterContext);
+          }
+          child = child.nextSibling;
+        }
+        return;
+      }
+
       // Handle PathExpression
       if (nodeName === 'PathExpression') {
 
@@ -126,8 +240,9 @@ export class FeelAnalyzer {
           const rootVar = pathParts[0];
           const isLocal = localScopes.some((scope) => scope.has(rootVar));
           const isItemInFilter = inFilterContext && rootVar === 'item';
+          const isBuiltin = builtinNames.has(rootVar);
 
-          if (!isLocal && !isItemInFilter) {
+          if (!isLocal && !isItemInFilter && !isBuiltin) {
 
             // If it's a path expression, add the full path
             inputs.add(pathParts.join('.'));
@@ -139,23 +254,27 @@ export class FeelAnalyzer {
       // Handle standalone VariableName
       if (nodeName === 'VariableName') {
 
-        // Check if this is part of a PathExpression
-        if (node.parent?.name === 'PathExpression') {
+        // Check if this is part of a PathExpression or FunctionInvocation
+        if (
+          node.parent?.name === 'PathExpression' ||
+          node.parent?.name === 'FunctionInvocation'
+        ) {
 
-          // Already handled by PathExpression logic
+          // Already handled by parent logic
           return;
         }
 
-        const varName = source.substring(node.from, node.to);
+        const varName = stripBackticks(source.substring(node.from, node.to));
         const isLocal = localScopes.some((scope) => scope.has(varName));
         const isItemInFilter = inFilterContext && varName === 'item';
+        const isBuiltin = builtinNames.has(varName);
 
         // If we're in a filter on a variable list (not a literal),
         // treat simple variable names as implicit item properties
         const isImplicitProperty =
           inFilterContext === 'variable-list' && varName !== 'item';
 
-        if (!isLocal && !isItemInFilter && !isImplicitProperty) {
+        if (!isLocal && !isItemInFilter && !isImplicitProperty && !isBuiltin) {
           inputs.add(varName);
         }
         return;
@@ -194,7 +313,9 @@ export class FeelAnalyzer {
               if (key) {
                 const keyNode = key.getChild('Name');
                 if (keyNode) {
-                  const keyText = source.substring(keyNode.from, keyNode.to);
+                  const keyText = stripBackticks(
+                    source.substring(keyNode.from, keyNode.to)
+                  );
                   newScope.add(keyText);
                 }
               }
@@ -468,7 +589,9 @@ export class FeelAnalyzer {
       if (child.name === 'PathExpression') {
         parts.push(...this.collectPathPartsFromNode(child, source));
       } else if (child.name === 'VariableName') {
-        const part = source.substring(child.from, child.to);
+        const part = this.stripBackticks(
+          source.substring(child.from, child.to)
+        );
         parts.push(part);
       }
       child = child.nextSibling;
@@ -543,7 +666,9 @@ export class FeelAnalyzer {
 
         while (child) {
           if (child.name === 'VariableName') {
-            const part = source.substring(child.from, child.to);
+            const part = this.stripBackticks(
+              source.substring(child.from, child.to)
+            );
             pathParts.push(part);
           }
           child = child.nextSibling;
@@ -603,7 +728,9 @@ export class FeelAnalyzer {
               if (key) {
                 const keyNode = key.getChild('Name');
                 if (keyNode) {
-                  const keyText = source.substring(keyNode.from, keyNode.to);
+                  const keyText = this.stripBackticks(
+                    source.substring(keyNode.from, keyNode.to)
+                  );
                   newScope.add(keyText);
                 }
               }
@@ -639,9 +766,8 @@ export class FeelAnalyzer {
                   if (key) {
                     const keyNode = key.getChild('Name');
                     if (keyNode) {
-                      const keyText = source.substring(
-                        keyNode.from,
-                        keyNode.to
+                      const keyText = this.stripBackticks(
+                        source.substring(keyNode.from, keyNode.to)
                       );
                       newScope.add(keyText);
                     }
@@ -659,7 +785,9 @@ export class FeelAnalyzer {
           let child = node.firstChild;
           while (child) {
             if (child.name === 'VariableName') {
-              listVarName = source.substring(child.from, child.to);
+              listVarName = this.stripBackticks(
+                source.substring(child.from, child.to)
+              );
               const isLocal = localScopes.some((scope) =>
                 scope.has(listVarName!)
               );
@@ -781,7 +909,9 @@ export class FeelAnalyzer {
               n.name === 'VariableName' &&
               n.parent?.name !== 'PathExpression'
             ) {
-              const varName = source.substring(n.from, n.to);
+              const varName = this.stripBackticks(
+                source.substring(n.from, n.to)
+              );
               const isLocal = localScopes.some((scope) => scope.has(varName));
 
               if (!isLocal && inputTypes[varName]) {
@@ -871,7 +1001,9 @@ export class FeelAnalyzer {
 
         while (child) {
           if (child.name === 'VariableName') {
-            const part = source.substring(child.from, child.to);
+            const part = this.stripBackticks(
+              source.substring(child.from, child.to)
+            );
             pathParts.push(part);
           }
           child = child.nextSibling;
@@ -893,7 +1025,9 @@ export class FeelAnalyzer {
       } else if (node.name === 'VariableName') {
 
         // Check for implicit item properties (just "x" instead of "item.x")
-        const varName = source.substring(node.from, node.to);
+        const varName = this.stripBackticks(
+          source.substring(node.from, node.to)
+        );
         const isLocal = localScopes.some((scope) => scope.has(varName));
 
         // If it's not local and not "item", it might be an implicit property
@@ -937,7 +1071,9 @@ export class FeelAnalyzer {
 
     // If varNode is a variable and literalNode is a literal, infer type
     if (varNode.name === 'VariableName') {
-      const varName = source.substring(varNode.from, varNode.to);
+      const varName = this.stripBackticks(
+        source.substring(varNode.from, varNode.to)
+      );
       const isLocal = localScopes.some((scope) => scope.has(varName));
 
       if (!isLocal && inputTypes[varName]) {
@@ -988,7 +1124,7 @@ export class FeelAnalyzer {
 
     // Variable reference - look up type in context
     if (nodeName === 'VariableName') {
-      const varName = source.substring(node.from, node.to);
+      const varName = this.stripBackticks(source.substring(node.from, node.to));
       if (options?.context && varName in options.context) {
         return this.inferTypeFromValue(options.context[varName]);
       }
@@ -999,7 +1135,9 @@ export class FeelAnalyzer {
     if (nodeName === 'PathExpression') {
       const firstChild = node.firstChild;
       if (firstChild?.name === 'VariableName' && options?.context) {
-        const varName = source.substring(firstChild.from, firstChild.to);
+        const varName = this.stripBackticks(
+          source.substring(firstChild.from, firstChild.to)
+        );
         if (varName in options.context) {
 
           // We have the base object, but path resolution would need more work
@@ -1026,7 +1164,9 @@ export class FeelAnalyzer {
           if (keyNode) {
             const nameNode = keyNode.getChild('Name');
             if (nameNode) {
-              const keyText = source.substring(nameNode.from, nameNode.to);
+              const keyText = this.stripBackticks(
+                source.substring(nameNode.from, nameNode.to)
+              );
               keys.push(keyText);
             }
           }

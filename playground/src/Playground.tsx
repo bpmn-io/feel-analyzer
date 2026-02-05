@@ -3,6 +3,7 @@ import JSON5 from "json5";
 import { unaryTest, evaluate } from "feelin";
 import { FeelAnalyzer } from "../../src/FeelAnalyzer.js";
 import { parser } from "lezer-feel";
+import { camundaBuiltins } from "@camunda/feel-builtins";
 
 interface Warning {
   type: string;
@@ -32,6 +33,8 @@ const STORAGE_KEY_SYNTAX_TREE_COLLAPSED = "feel-analyzer-syntax-tree-collapsed";
 const STORAGE_KEY_BACKEND_COLLAPSED = "feel-analyzer-backend-collapsed";
 const STORAGE_KEY_FEELIN_COLLAPSED = "feel-analyzer-feelin-collapsed";
 const STORAGE_KEY_AUTO_UPDATE_CONTEXT = "feel-analyzer-auto-update-context";
+const STORAGE_KEY_PARSER_DIALECT = "feel-analyzer-parser-dialect";
+const STORAGE_KEY_USE_BUILTINS = "feel-analyzer-use-builtins";
 
 /**
  * Format syntax tree for display
@@ -116,6 +119,16 @@ export function Playground({
   const [autoManagedKeys, setAutoManagedKeys] = useState<Set<string>>(
     new Set()
   );
+  const [parserDialect, setParserDialect] = useState<"standard" | "camunda">(
+    () => {
+      const stored = localStorage.getItem(STORAGE_KEY_PARSER_DIALECT);
+      return (stored as "standard" | "camunda") || "camunda";
+    }
+  );
+  const [useBuiltins, setUseBuiltins] = useState(() => {
+    const stored = localStorage.getItem(STORAGE_KEY_USE_BUILTINS);
+    return stored === null ? true : stored === "true";
+  });
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_BACKEND_URL, backendUrl);
@@ -168,6 +181,14 @@ export function Playground({
       String(autoUpdateContext)
     );
   }, [autoUpdateContext]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_PARSER_DIALECT, parserDialect);
+  }, [parserDialect]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_USE_BUILTINS, String(useBuiltins));
+  }, [useBuiltins]);
 
   // Keep URL in sync with expression and context
   useEffect(() => {
@@ -424,11 +445,19 @@ export function Playground({
       const analyzer = new FeelAnalyzer();
 
       const analysisStart = performance.now();
-      const analysis = analyzer.analyze(expression, { context: contextObj });
+      const analysis = analyzer.analyze(expression, {
+        context: contextObj,
+        parserDialect: parserDialect,
+        builtins: useBuiltins ? camundaBuiltins : undefined,
+      });
       metrics.analysisTime = performance.now() - analysisStart;
 
-      // Display syntax tree
-      const tree = parser.parse(expression);
+      // Display syntax tree with configured dialect
+      const configuredParser =
+        parserDialect === "standard"
+          ? parser
+          : parser.configure({ dialect: parserDialect });
+      const tree = configuredParser.parse(expression);
       const treeStr = formatSyntaxTree(tree.topNode, expression);
       setSyntaxTree(treeStr);
 
@@ -560,6 +589,40 @@ export function Playground({
                 <option value="unaryTest">Unary Test</option>
               </select>
             </label>
+          </div>
+
+          <div class="form-group">
+            <label>
+              Parser Dialect:
+              <select
+                value={parserDialect}
+                onChange={(e) =>
+                  setParserDialect((e.target as HTMLSelectElement).value as any)
+                }
+              >
+                <option value="camunda">Camunda</option>
+                <option value="standard">Standard</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input
+                type="checkbox"
+                checked={useBuiltins}
+                onChange={(e) =>
+                  setUseBuiltins((e.target as HTMLInputElement).checked)
+                }
+              />
+              <span>Use Camunda Built-ins</span>
+            </label>
+            {useBuiltins && (
+              <div style="font-size: 0.85em; color: #666; margin-top: 4px; padding-left: 24px;">
+                Functions like uuid(), trim(), etc. will be filtered from needed
+                inputs
+              </div>
+            )}
           </div>
 
           <div class="form-group">
