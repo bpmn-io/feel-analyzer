@@ -22,7 +22,8 @@
     "all": "run-s lint test build",
     "lint": "eslint .",
     "test": "mocha --node-option import=tsx test/**/*.spec.ts",
-    "build": "rollup -c"
+    "build": "rollup -c",
+    "prepare": "npm run build"
   },
   "dependencies": {
     "@bpmn-io/lezer-feel": "^2.1.0"

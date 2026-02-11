@@ -1,23 +1,43 @@
-import { parser } from '@bpmn-io/lezer-feel';
+import { parser, trackVariables } from '@bpmn-io/lezer-feel';
+
+import type { AnalysisResult, Builtin } from './types';
+
+import { analyzeForInputs } from './analyzers/inputs';
+import { createContext } from './utils/create-context';
+
+interface FeelAnalyzerOptions {
+  dialect: 'expression' | 'unaryTests';
+  parserDialect: undefined | 'camunda';
+  builtins: Builtin[];
+  reservedNameBuiltins: Builtin[];
+}
 
 export class FeelAnalyzer {
-  analyzeExpression(expression: string) {
-    const tree = parser.parse(expression);
+  builtinNames: string[];
+  parser: typeof parser;
 
-    const result = {
-      valid: true,
+  constructor(options: Partial<FeelAnalyzerOptions> = {}) {
+    this.builtinNames = options.builtins?.map((builtin) => builtin.name) ?? [];
+
+    const config: Record<string,unknown> = {
+      top: options.dialect === 'unaryTests' ? 'UnaryTests' : 'Expression',
+      dialect: options.parserDialect,
     };
 
-    tree.iterate({
-      enter(syntaxNodeRef) {
-        const { isError } = syntaxNodeRef.type;
+    if (options.reservedNameBuiltins && options.reservedNameBuiltins.length > 0) {
+      config.contextTracker = trackVariables(createContext(options.reservedNameBuiltins));
+    }
 
-        if (isError) {
-          result.valid = false;
-        }
-      },
-    });
+    this.parser = parser.configure(config);
+  }
+  analyzeExpression(expression: string): AnalysisResult {
+    const tree = this.parser.parse(expression);
 
-    return result;
+    const { inputs, hasErrors } = analyzeForInputs(tree.topNode, expression, new Set(this.builtinNames));
+
+    return {
+      valid: !hasErrors,
+      inputs,
+    };
   }
 }
