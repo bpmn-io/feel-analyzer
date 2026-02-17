@@ -5,7 +5,7 @@ import type { AnalysisResult, Builtin } from './types';
 import { analyzeForInputs } from './analyzers/inputs';
 import { createContext } from './utils/create-context';
 
-interface FeelAnalyzerOptions {
+export interface FeelAnalyzerOptions {
   dialect: 'expression' | 'unaryTests';
   parserDialect: undefined | 'camunda';
   builtins: Builtin[];
