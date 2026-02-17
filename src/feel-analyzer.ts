@@ -19,7 +19,7 @@ export class FeelAnalyzer {
   constructor(options: Partial<FeelAnalyzerOptions> = {}) {
     this.builtinNames = options.builtins?.map((builtin) => builtin.name) ?? [];
 
-    const config: Record<string,unknown> = {
+    const config: Record<string, unknown> = {
       top: options.dialect === 'unaryTests' ? 'UnaryTests' : 'Expression',
       dialect: options.parserDialect,
     };
