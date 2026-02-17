@@ -12,16 +12,75 @@ npm install @bpmn-io/feel-analyzer
 
 ## Usage
 
-### Basic Example
+To get started, create a `FeelAnalyzer` instance:
 
 ```javascript
 import { FeelAnalyzer } from '@bpmn-io/feel-analyzer';
 
 const analyzer = new FeelAnalyzer();
+```
 
+Analyze a FEEL expression to extract input variables:
+
+```javascript
 const result = analyzer.analyzeExpression('x + y');
 
 console.log(result.valid); // true
+console.log(result.inputs);
+// { x: { type: 'unknown' }, y: { type: 'unknown' } }
+```
+
+Configure the FEEL dialect (expression or unary tests):
+
+```javascript
+const analyzer = new FeelAnalyzer({
+  dialect: 'unaryTests' // defaults to 'expression'
+});
+```
+
+### Builtins
+
+You can provide `builtins` and `reservedNameBuiltins` to exclude built-in names from input detection. Use [`@camunda/feel-builtins`](https://github.com/camunda/feel-builtins) to supply these:
+
+```javascript
+import { FeelAnalyzer } from '@bpmn-io/feel-analyzer';
+import { builtins, reservedNameBuiltins } from '@camunda/feel-builtins';
+
+const analyzer = new FeelAnalyzer({
+  dialect: 'expression',
+  parserDialect: 'camunda',
+  builtins,
+  reservedNameBuiltins
+});
+
+const result = analyzer.analyzeExpression('sum(orders.amount) > 100');
+
+console.log(result.inputs);
+// {
+//   orders: {
+//     type: 'list',
+//     itemProperties: [ 'amount' ]
+//   }
+// }
+```
+
+### Input Types
+
+The analyzer extracts input variables with type information, including nested structures:
+
+```javascript
+const result = analyzer.analyzeExpression('person.name = "John" and scores[1] > 10');
+
+console.log(result.inputs);
+// {
+//   person: {
+//     type: 'context',
+//     properties: { name: { type: 'unknown' } }
+//   },
+//   scores: {
+//     type: 'list'
+//   }
+// }
 ```
 
 ## Related
