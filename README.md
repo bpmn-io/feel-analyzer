@@ -27,7 +27,10 @@ const result = analyzer.analyzeExpression('x + y');
 
 console.log(result.valid); // true
 console.log(result.inputs);
-// { x: { type: 'unknown' }, y: { type: 'unknown' } }
+// [
+//   { name: 'x' },
+//   { name: 'y' }
+// ]
 ```
 
 Configure the FEEL dialect (expression or unary tests):
@@ -56,31 +59,38 @@ const analyzer = new FeelAnalyzer({
 const result = analyzer.analyzeExpression('sum(orders.amount) > 100');
 
 console.log(result.inputs);
-// {
-//   orders: {
-//     type: 'list',
-//     itemProperties: [ 'amount' ]
+// [
+//   {
+//     name: 'orders',
+//     type: 'List',
+//     entries: [
+//       { name: 'amount' }
+//     ]
 //   }
-// }
+// ]
 ```
 
-### Input Types
+### Input Variables
 
-The analyzer extracts input variables with type information, including nested structures:
+The analyzer extracts input variables with type information, including nested structures. The data model is aligned with [variable-resolver](https://github.com/bpmn-io/variable-resolver):
 
 ```javascript
 const result = analyzer.analyzeExpression('person.name = "John" and scores[1] > 10');
 
 console.log(result.inputs);
-// {
-//   person: {
-//     type: 'context',
-//     properties: { name: { type: 'unknown' } }
+// [
+//   {
+//     name: 'person',
+//     type: 'Context',
+//     entries: [
+//       { name: 'name' }
+//     ]
 //   },
-//   scores: {
-//     type: 'list'
+//   {
+//     name: 'scores',
+//     type: 'List'
 //   }
-// }
+// ]
 ```
 
 ## Related

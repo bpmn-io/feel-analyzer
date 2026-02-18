@@ -1,18 +1,19 @@
 import type { SyntaxNode } from '@lezer/common';
 
-import type { InputType } from '../types';
+import type { InputVariable } from '../types';
 
 import {
-  buildNestedProperties,
+  buildNestedEntries,
   collectFunctionParameters,
   collectIterationVariables,
   collectPathParts,
   extractContextKeys,
+  findVariable,
   forEachChild,
   hasContextBase,
   isInScope,
   nodeText,
-  sortNestedProperties,
+  sortEntries,
   withScope,
 } from './utils';
 
@@ -190,15 +191,15 @@ function extractInputNames(
 }
 
 /**
- * Initialize input types based on collected variable names.
+ * Initialize input variables based on collected variable names.
  * Dotted paths like "a.b.c" create nested context structures.
  */
-function initializeInputTypes(collectedInputs: string[]): Record<string, InputType> {
-  const inputTypes: Record<string, InputType> = {};
+function initializeInputVariables(collectedInputs: string[]): InputVariable[] {
+  const variables: InputVariable[] = [];
   for (const input of collectedInputs) {
-    buildNestedProperties(inputTypes, input.split('.'));
+    buildNestedEntries(variables, input.split('.'));
   }
-  return inputTypes;
+  return variables;
 }
 
 /**
@@ -228,47 +229,49 @@ function checkLiteralsInNode(node: SyntaxNode): { hasString: boolean; hasNumber:
 function inferTypeForVariablesInNode(
     node: SyntaxNode,
     source: string,
-    inputTypes: Record<string, InputType>,
+    inputs: InputVariable[],
     localScopes: Set<string>[],
-    inferredType: 'string' | 'number',
+    inferredType: string,
 ): void {
 
   if (node.name === 'VariableName' && node.parent?.name !== 'PathExpression') {
     const varName = nodeText(node, source);
-    if (!isInScope(varName, localScopes) && inputTypes[varName]?.type === 'unknown') {
-      inputTypes[varName].type = inferredType;
+    const variable = findVariable(inputs, varName);
+    if (!isInScope(varName, localScopes) && variable && !variable.type) {
+      variable.type = inferredType;
     }
   } else if (node.name === 'PathExpression') {
     const pathParts = collectPathParts(node, source);
     if (pathParts.length > 0) {
       const rootVar = pathParts[0];
-      if (!isInScope(rootVar, localScopes) && inputTypes[rootVar]?.type === 'unknown') {
-        inputTypes[rootVar].type = inferredType;
+      const variable = findVariable(inputs, rootVar);
+      if (!isInScope(rootVar, localScopes) && variable && !variable.type) {
+        variable.type = inferredType;
       }
     }
   } else {
     forEachChild(node, (child) => {
-      inferTypeForVariablesInNode(child, source, inputTypes, localScopes, inferredType);
+      inferTypeForVariablesInNode(child, source, inputs, localScopes, inferredType);
     });
   }
 }
 
 /**
  * Track which properties are accessed on `item` inside a filter expression
- * and record them as `itemProperties` on the list variable's type.
+ * and record them as entries on the list variable.
  */
 function trackFilterItemProperties(
     node: SyntaxNode,
     source: string,
     listVarName: string | null,
-    inputTypes: Record<string, InputType>,
+    inputs: InputVariable[],
     localScopes: Set<string>[],
 ): void {
-  if (!listVarName || !inputTypes[listVarName]) return;
+  const listVar = listVarName ? findVariable(inputs, listVarName) : null;
+  if (!listVar) return;
 
   const visit = (node: SyntaxNode) => {
-    const listType = inputTypes[listVarName!];
-    if (listType.type !== 'list') return;
+    if (listVar.type !== 'List') return;
 
     if (node.name === 'PathExpression') {
       const pathParts: string[] = [];
@@ -278,26 +281,26 @@ function trackFilterItemProperties(
         }
       });
 
-      // `item.prop` → record 'prop' as an item property
+      // `item.prop` → record 'prop' as an item entry
       if (pathParts.length > 1 && pathParts[0] === 'item') {
-        const itemProperties = listType.itemProperties || [];
+        const entries = listVar.entries || [];
         for (let i = 1; i < pathParts.length; i++) {
-          if (!itemProperties.includes(pathParts[i])) {
-            itemProperties.push(pathParts[i]);
+          if (!findVariable(entries, pathParts[i])) {
+            entries.push({ name: pathParts[i] });
           }
         }
-        listType.itemProperties = itemProperties;
+        listVar.entries = entries;
       }
     } else if (node.name === 'VariableName') {
       const varName = nodeText(node, source);
 
-      // Standalone variable inside filter (not `item`, not local) → item property
+      // Standalone variable inside filter (not `item`, not local) → item entry
       if (!isInScope(varName, localScopes) && varName !== 'item' && node.parent?.name !== 'PathExpression') {
-        const itemProperties = listType.itemProperties || [];
-        if (!itemProperties.includes(varName)) {
-          itemProperties.push(varName);
+        const entries = listVar.entries || [];
+        if (!findVariable(entries, varName)) {
+          entries.push({ name: varName });
         }
-        listType.itemProperties = itemProperties;
+        listVar.entries = entries;
       }
     }
 
@@ -309,30 +312,30 @@ function trackFilterItemProperties(
 
 /**
  * Infer type of a variable from a direct comparison with a literal
- * (e.g. `x > 5` → x is number, `name = "foo"` → name is string).
+ * (e.g. `x > 5` → x is Number, `name = "foo"` → name is String).
  */
 function inferTypeFromComparison(
     varNode: SyntaxNode,
     literalNode: SyntaxNode,
     source: string,
-    inputTypes: Record<string, InputType>,
+    inputs: InputVariable[],
     localScopes: Set<string>[],
 ): void {
   if (varNode.name !== 'VariableName') return;
 
   const varName = nodeText(varNode, source);
-  if (isInScope(varName, localScopes) || !inputTypes[varName]) return;
+  const variable = findVariable(inputs, varName);
+  if (isInScope(varName, localScopes) || !variable) return;
 
-  const varType = inputTypes[varName];
-  if (varType.type !== 'unknown') return;
+  if (variable.type) return;
 
-  const literalTypeMap: Record<string, InputType['type']> = {
-    NumericLiteral: 'number',
-    StringLiteral: 'string',
-    BooleanLiteral: 'boolean',
+  const literalTypeMap: Record<string, string> = {
+    NumericLiteral: 'Number',
+    StringLiteral: 'String',
+    BooleanLiteral: 'Boolean',
   };
   const inferred = literalTypeMap[literalNode.name];
-  if (inferred) varType.type = inferred;
+  if (inferred) variable.type = inferred;
 }
 
 /**
@@ -341,7 +344,7 @@ function inferTypeFromComparison(
 function inferTypes(
     node: SyntaxNode,
     source: string,
-    inputTypes: Record<string, InputType>,
+    inputs: InputVariable[],
     localScopes: Set<string>[],
     filterCtx: FilterContext = 'none',
 ): void {
@@ -350,15 +353,15 @@ function inferTypes(
   if (nodeName === 'PathExpression') {
     const first = node.firstChild;
     if (first?.name === 'Context' || first?.name === 'PathExpression') {
-      inferTypes(first, source, inputTypes, localScopes, filterCtx);
+      inferTypes(first, source, inputs, localScopes, filterCtx);
       return;
     }
 
     const pathParts = collectPathParts(node, source);
     if (pathParts.length > 0) {
       const rootVar = pathParts[0];
-      if (!isInScope(rootVar, localScopes) && !(filterCtx !== 'none' && rootVar === 'item') && inputTypes[rootVar]) {
-        buildNestedProperties(inputTypes, pathParts);
+      if (!isInScope(rootVar, localScopes) && !(filterCtx !== 'none' && rootVar === 'item') && findVariable(inputs, rootVar)) {
+        buildNestedEntries(inputs, pathParts);
       }
     }
     return;
@@ -370,7 +373,7 @@ function inferTypes(
         if (child.name === 'ContextEntry') {
           forEachChild(child, (innerChild) => {
             if (innerChild.name !== 'Key') {
-              inferTypes(innerChild, source, inputTypes, localScopes, filterCtx);
+              inferTypes(innerChild, source, inputs, localScopes, filterCtx);
             }
           });
 
@@ -399,11 +402,10 @@ function inferTypes(
       forEachChild(node, (child) => {
         if (child.name === 'VariableName') {
           listVarName = nodeText(child, source);
-          if (!isInScope(listVarName!, localScopes) && inputTypes[listVarName!]) {
-            const varType = inputTypes[listVarName!];
-            if (varType.type === 'unknown') {
-              varType.type = 'list';
-              varType.itemProperties = [];
+          const variable = findVariable(inputs, listVarName!);
+          if (!isInScope(listVarName!, localScopes) && variable) {
+            if (!variable.type) {
+              variable.type = 'List';
             }
           }
           newFilterCtx = 'variable-list';
@@ -414,8 +416,8 @@ function inferTypes(
     withScope(localScopes, scopeNames, () => {
       forEachChild(node, (child) => {
         if (child.name === 'Comparison' || child.name === 'Expression') {
-          trackFilterItemProperties(child, source, listVarName, inputTypes, localScopes);
-          inferTypes(child, source, inputTypes, localScopes, newFilterCtx);
+          trackFilterItemProperties(child, source, listVarName, inputs, localScopes);
+          inferTypes(child, source, inputs, localScopes, newFilterCtx);
         }
       });
     });
@@ -428,24 +430,24 @@ function inferTypes(
       if (child.name !== 'CompareOp') operands.push(child);
     });
     if (operands.length === 2) {
-      inferTypeFromComparison(operands[0], operands[1], source, inputTypes, localScopes);
-      inferTypeFromComparison(operands[1], operands[0], source, inputTypes, localScopes);
+      inferTypeFromComparison(operands[0], operands[1], source, inputs, localScopes);
+      inferTypeFromComparison(operands[1], operands[0], source, inputs, localScopes);
     }
   }
 
   if (nodeName === 'ArithmeticExpression') {
     const { hasString, hasNumber } = checkLiteralsInNode(node);
-    const inferredType = hasString && !hasNumber ? 'string'
-      : !hasString && hasNumber ? 'number'
+    const inferredType = hasString && !hasNumber ? 'String'
+      : !hasString && hasNumber ? 'Number'
         : null;
 
     if (inferredType) {
-      inferTypeForVariablesInNode(node, source, inputTypes, localScopes, inferredType);
+      inferTypeForVariablesInNode(node, source, inputs, localScopes, inferredType);
     }
 
     forEachChild(node, (child) => {
       if (![ 'ArithmeticExpression', 'ArithOp', 'NumericLiteral', 'StringLiteral' ].includes(child.name)) {
-        inferTypes(child, source, inputTypes, localScopes, filterCtx);
+        inferTypes(child, source, inputs, localScopes, filterCtx);
       }
     });
     return;
@@ -460,7 +462,7 @@ function inferTypes(
         if (child.name === 'InExpression') {
           forEachChild(child, (innerChild) => {
             if (![ 'Name', 'in', 'Identifier' ].includes(innerChild.name)) {
-              inferTypes(innerChild, source, inputTypes, localScopes, filterCtx);
+              inferTypes(innerChild, source, inputs, localScopes, filterCtx);
             }
           });
         }
@@ -470,7 +472,7 @@ function inferTypes(
     withScope(localScopes, iterVars, () => {
       forEachChild(node, (child) => {
         if (!ITERATION_KEYWORDS.has(child.name)) {
-          inferTypes(child, source, inputTypes, localScopes, 'none');
+          inferTypes(child, source, inputs, localScopes, 'none');
         }
       });
     });
@@ -482,13 +484,13 @@ function inferTypes(
 
     withScope(localScopes, params, () => {
       const body = node.getChild('FunctionBody');
-      if (body) inferTypes(body, source, inputTypes, localScopes, 'none');
+      if (body) inferTypes(body, source, inputs, localScopes, 'none');
     });
     return;
   }
 
   forEachChild(node, (child) => {
-    inferTypes(child, source, inputTypes, localScopes, filterCtx);
+    inferTypes(child, source, inputs, localScopes, filterCtx);
   });
 }
 
@@ -499,20 +501,19 @@ export function analyzeForInputs(
     node: SyntaxNode,
     source: string,
     builtinNames: Set<string>,
-): { inputs: Record<string, InputType>; hasErrors: boolean } {
+): { inputs: InputVariable[]; hasErrors: boolean } {
   const { inputs: collectedInputs, hasErrors } = extractInputNames(node, source, builtinNames);
 
-  const inputTypes = initializeInputTypes(collectedInputs);
+  const inputs = initializeInputVariables(collectedInputs);
 
   const localScopes: Set<string>[] = [ new Set() ];
-  inferTypes(node, source, inputTypes, localScopes);
+  inferTypes(node, source, inputs, localScopes);
 
-  // Sort properties for deterministic output
-  for (const varName in inputTypes) {
-    const varType = inputTypes[varName];
-    if (varType.type === 'context') sortNestedProperties(varType);
-    if (varType.type === 'list' && varType.itemProperties) varType.itemProperties.sort();
+  // Sort entries for deterministic output
+  for (const variable of inputs) {
+    sortEntries(variable);
   }
+  inputs.sort((a, b) => a.name.localeCompare(b.name));
 
-  return { inputs: inputTypes, hasErrors };
+  return { inputs, hasErrors };
 }

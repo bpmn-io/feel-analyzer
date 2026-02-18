@@ -49,7 +49,7 @@ describe('FeelAnalyzer', function () {
     it('should support backticks', function () {
       const result = camundaAnalyzer.analyzeExpression('`backtick`');
       expect(result.valid).to.be.true;
-      expect(result.inputs).to.deep.equal({ backtick: { type: 'unknown' } });
+      expect(result.inputs).to.deep.equal([{ name: 'backtick' }]);
     });
 
   });

@@ -1,8 +1,6 @@
 import type { SyntaxNode } from '@lezer/common';
 
-import { InputType } from '../types';
-
-// --- Text helpers ---
+import type { InputVariable } from '../types';
 
 /**
  * Strip backticks from identifier names
@@ -133,62 +131,74 @@ export function collectFunctionParameters(node: SyntaxNode, source: string): str
   return params;
 }
 
-// --- Type helpers ---
+/**
+ * Find a variable by name in an InputVariable array
+ */
+export function findVariable(variables: InputVariable[], name: string): InputVariable | undefined {
+  return variables.find((v) => v.name === name);
+}
 
 /**
- * Build nested context properties from a dot path (e.g. ['a', 'b', 'c']).
+ * Find a variable by name, or create and insert it if missing
+ */
+export function findOrCreateVariable(variables: InputVariable[], name: string): InputVariable {
+  let variable = findVariable(variables, name);
+  if (!variable) {
+    variable = { name };
+    variables.push(variable);
+  }
+  return variable;
+}
+
+/**
+ * Build nested context entries from a dot path (e.g. ['a', 'b', 'c']).
  * Creates intermediate context nodes as needed.
  */
-export function buildNestedProperties(
-    inputTypes: Record<string, InputType>,
+export function buildNestedEntries(
+    variables: InputVariable[],
     pathParts: string[],
 ): void {
-  const rootVar = pathParts[0];
-  if (!inputTypes[rootVar]) {
-    inputTypes[rootVar] = { type: 'unknown' };
-  }
+  const rootVar = findOrCreateVariable(variables, pathParts[0]);
 
   if (pathParts.length <= 1) return;
 
-  const rootType = inputTypes[rootVar];
-  if (rootType.type === 'unknown') {
-    rootType.type = 'context';
-    rootType.properties = {};
+  if (!rootVar.type) {
+    rootVar.type = 'Context';
+    rootVar.entries = rootVar.entries || [];
   }
-  if (rootType.type !== 'context') return;
+  if (rootVar.type !== 'Context') return;
 
-  let currentLevel = rootType.properties!;
+  let currentLevel = rootVar.entries!;
   for (let i = 1; i < pathParts.length; i++) {
     const part = pathParts[i];
     const isLast = i === pathParts.length - 1;
 
-    if (!currentLevel[part]) {
-      currentLevel[part] = isLast
-        ? { type: 'unknown' }
-        : { type: 'context', properties: {} };
-    } else if (!isLast && currentLevel[part].type === 'unknown') {
-      currentLevel[part].type = 'context';
-      currentLevel[part].properties = currentLevel[part].properties || {};
+    let entry = findVariable(currentLevel, part);
+    if (!entry) {
+      entry = isLast
+        ? { name: part }
+        : { name: part, type: 'Context', entries: [] };
+      currentLevel.push(entry);
+    } else if (!isLast && !entry.type) {
+      entry.type = 'Context';
+      entry.entries = entry.entries || [];
     }
 
     if (!isLast) {
-      currentLevel[part].properties = currentLevel[part].properties || {};
-      currentLevel = currentLevel[part].properties!;
+      entry.entries = entry.entries || [];
+      currentLevel = entry.entries;
     }
   }
 }
 
 /**
- * Sort nested properties recursively for deterministic output
+ * Sort entries recursively for deterministic output
  */
-export function sortNestedProperties(inputType: InputType): void {
-  if (inputType.properties) {
-    const sortedKeys = Object.keys(inputType.properties).sort();
-    const sortedProps: Record<string, InputType> = {};
-    for (const key of sortedKeys) {
-      sortedProps[key] = inputType.properties[key];
-      sortNestedProperties(sortedProps[key]);
+export function sortEntries(variable: InputVariable): void {
+  if (variable.entries) {
+    variable.entries.sort((a, b) => a.name.localeCompare(b.name));
+    for (const entry of variable.entries) {
+      sortEntries(entry);
     }
-    inputType.properties = sortedProps;
   }
 }

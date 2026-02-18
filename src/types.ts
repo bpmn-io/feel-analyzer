@@ -27,24 +27,26 @@ export interface Builtin {
 }
 
 /**
- * Input type information - describes expected type of an input variable
+ * Input variable information - describes an input variable and its structure.
+ * Aligned with the variable-resolver data model.
  */
-export interface InputType {
+export interface InputVariable {
 
   /**
-   * The expected kind of input
+   * The variable name
    */
-  type: 'context' | 'list' | 'boolean' | 'number' | 'string' | 'unknown';
+  name: string;
 
   /**
-   * For context inputs, nested property structure
+   * The expected type (e.g. 'Context', 'List', 'Number', 'String', 'Boolean').
+   * Omitted when the type cannot be inferred.
    */
-  properties?: Record<string, InputType>;
+  type?: string;
 
   /**
-   * For list inputs, information about expected item structure
+   * For context or list inputs, nested entries describing the structure
    */
-  itemProperties?: string[];
+  entries?: InputVariable[];
 }
 
 /**
@@ -58,7 +60,7 @@ export interface AnalysisResult {
   valid: boolean;
 
   /**
-   * Input variables structure needed by the expression
+   * Input variables needed by the expression
    */
-  inputs?: Record<string, InputType>;
+  inputs?: InputVariable[];
 }

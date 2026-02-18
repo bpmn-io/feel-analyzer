@@ -1,11 +1,11 @@
-import type { InputType } from "../../src/types";
+import type { InputVariable } from "../../src/types";
 
 export interface TestCases {
   expression: string;
   context?: Record<string, unknown>;
   description?: string;
   expected?: {
-    inputs?: Record<string, InputType>;
+    inputs?: InputVariable[];
   };
 }
 
@@ -14,80 +14,81 @@ export const testCases: TestCases[] = [
     expression: "firstName + lastName",
     description: "Unknown type without context",
     expected: {
-      inputs: {
-        firstName: { type: "unknown" },
-        lastName: { type: "unknown" },
-      },
+      inputs: [
+        { name: "firstName" },
+        { name: "lastName" },
+      ],
     },
   },
   {
     expression: 'firstName + " " + lastName',
     description: "String type from literal - Variables inferred as strings",
     expected: {
-      inputs: {
-        firstName: { type: "string" },
-        lastName: { type: "string" },
-      },
+      inputs: [
+        { name: "firstName", type: "String" },
+        { name: "lastName", type: "String" },
+      ],
     },
   },
   {
     expression: "age + 5 + offset",
     description: "Number type from literal - Variables inferred as numbers",
     expected: {
-      inputs: {
-        age: { type: "number" },
-        offset: { type: "number" },
-      },
+      inputs: [
+        { name: "age", type: "Number" },
+        { name: "offset", type: "Number" },
+      ],
     },
   },
   {
     expression: "user.name + user.email",
     description: "Context type - Detects accessed properties (name, email)",
     expected: {
-      inputs: {
-        user: { 
-          type: "context", 
-          properties: {
-            email: { type: "unknown" },
-            name: { type: "unknown" }
-          }
+      inputs: [
+        {
+          name: "user",
+          type: "Context",
+          entries: [
+            { name: "email" },
+            { name: "name" },
+          ],
         },
-      },
+      ],
     },
   },
   {
     expression: "products[item.price > 100 and item.inStock]",
     description: "List type - Detects item structure (price, inStock)",
     expected: {
-      inputs: {
-        products: { type: "list", itemProperties: [] },
-      },
+      inputs: [
+        { name: "products", type: "List" },
+      ],
     },
   },
   {
     expression: "x > 5",
     description: "Number from comparison - Comparison suggests numeric type",
     expected: {
-      inputs: {
-        x: { type: "number" },
-      },
+      inputs: [
+        { name: "x", type: "Number" },
+      ],
     },
   },
   {
     expression: "x + y",
     description: "Unknown type - Could be string or number without literals",
     expected: {
-      inputs: {
-        x: { type: "unknown" },
-        y: { type: "unknown" },
-      },
+      inputs: [
+        { name: "x" },
+        { name: "y" },
+      ],
     },
   },
   {
     expression: "[ {x: 1}, {x: 2}, {x:3}][item.x>2]",
     description: "Filter on literal - 'item' is implicit, no external inputs",
     expected: {
-      inputs: {},
+      inputs: [],
     },
   },
   {
@@ -95,18 +96,18 @@ export const testCases: TestCases[] = [
     description:
       "Filter with external variable - Detects 'y' as external input",
     expected: {
-      inputs: {
-        y: { type: "unknown" },
-      },
+      inputs: [
+        { name: "y" },
+      ],
     },
   },
   {
     expression: "list[x>2]",
     description: "Filter on variable - 'list' required; 'x' is item property",
     expected: {
-      inputs: {
-        list: { type: "list", itemProperties: ["x"] },
-      },
+      inputs: [
+        { name: "list", type: "List", entries: [{ name: "x" }] },
+      ],
     },
   },
 
@@ -114,39 +115,41 @@ export const testCases: TestCases[] = [
     expression: "a + b.c",
     description: "Mixed paths - Simple variable 'a' and path 'b.c'",
     expected: {
-      inputs: {
-        a: { type: "unknown" },
-        b: { 
-          type: "context", 
-          properties: {
-            c: { type: "unknown" }
-          }
+      inputs: [
+        { name: "a" },
+        {
+          name: "b",
+          type: "Context",
+          entries: [
+            { name: "c" },
+          ],
         },
-      },
+      ],
     },
   },
   {
     expression: "{a: {b: c}}.a.b",
     description: "Literal context path - Only 'c' is external",
     expected: {
-      inputs: {
-        c: { type: "unknown" },
-      },
+      inputs: [
+        { name: "c" },
+      ],
     },
   },
   {
     expression: 'fromAi(toolCall.yearlyIncome, "prompt", "number")',
     description: "Function arguments - Detects nested path in arguments",
     expected: {
-      inputs: {
-        fromAi: { type: "unknown" },
-        toolCall: { 
-          type: "context", 
-          properties: {
-            yearlyIncome: { type: "unknown" }
-          }
+      inputs: [
+        { name: "fromAi" },
+        {
+          name: "toolCall",
+          type: "Context",
+          entries: [
+            { name: "yearlyIncome" },
+          ],
         },
-      },
+      ],
     },
   },
 
@@ -154,60 +157,60 @@ export const testCases: TestCases[] = [
     expression: "{ a: 1, b: a + c }",
     description: "Local scoping - 'a' is local, only 'c' is external",
     expected: {
-      inputs: {
-        c: { type: "unknown" },
-      },
+      inputs: [
+        { name: "c" },
+      ],
     },
   },
   {
     expression: '{ db: db, user: "postgres" }',
     description: "Context with external variable - Detects 'db' input",
     expected: {
-      inputs: {
-        db: { type: "unknown" },
-      },
+      inputs: [
+        { name: "db" },
+      ],
     },
   },
   {
     expression: "{ a: 1, b: 2, c: 3 }",
     description: "Context output - Returns context with keys a, b, c",
     expected: {
-      inputs: {},
+      inputs: [],
     },
   },
   {
     expression: "[1, 2, 3]",
     description: "List output - Returns a list",
     expected: {
-      inputs: {},
+      inputs: [],
     },
   },
   {
     expression: "5 + 10",
     description: "Number output - Returns numeric result",
     expected: {
-      inputs: {},
+      inputs: [],
     },
   },
   {
     expression: '"hello" + "world"',
     description: "String output - Returns string result",
     expected: {
-      inputs: {},
+      inputs: [],
     },
   },
   {
     expression: '5 + "hello"',
     description: "Mixed literals - Ambiguous type (number + string)",
     expected: {
-      inputs: {},
+      inputs: [],
     },
   },
   {
     expression: '"text {{variable}}"',
     description: "String interpolation - Variables in strings ignored",
     expected: {
-      inputs: {},
+      inputs: [],
     },
   },
   {
@@ -215,10 +218,10 @@ export const testCases: TestCases[] = [
     context: { x: "hello", y: "world" },
     description: "Context inference - Output type inferred from context values",
     expected: {
-      inputs: {
-        x: { type: "unknown" },
-        y: { type: "unknown" },
-      },
+      inputs: [
+        { name: "x" },
+        { name: "y" },
+      ],
     },
   },
   {
@@ -228,24 +231,25 @@ export const testCases: TestCases[] = [
     description:
       "Nested context with path access - Detects user.name and user_email",
     expected: {
-      inputs: {
-        user: { 
-          type: "context", 
-          properties: {
-            name: { type: "unknown" }
-          }
+      inputs: [
+        {
+          name: "user",
+          type: "Context",
+          entries: [
+            { name: "name" },
+          ],
         },
-        user_email: { type: "unknown" },
-      },
+        { name: "user_email" },
+      ],
     },
   },
   {
     expression: "for i in [1,2,3] return i + x + 9",
     description: "For expression - Local variable 'i' in iteration",
     expected: {
-      inputs: {
-        x: { type: "number" },
-      },
+      inputs: [
+        { name: "x", type: "Number" },
+      ],
     },
   },
   {
@@ -253,9 +257,9 @@ export const testCases: TestCases[] = [
     description:
       "Quantified expression (some) - Local variable 'x' in condition",
     expected: {
-      inputs: {
-        y: { type: "unknown" },
-      },
+      inputs: [
+        { name: "y" },
+      ],
     },
   },
   {
@@ -263,9 +267,9 @@ export const testCases: TestCases[] = [
     description:
       "Quantified expression (every) - 'x' is local, 'list' is external",
     expected: {
-      inputs: {
-        list: { type: "unknown" },
-      },
+      inputs: [
+        { name: "list" },
+      ],
     },
   },
   {
@@ -273,9 +277,9 @@ export const testCases: TestCases[] = [
     description:
       "Function definition - Parameters 'a' and 'b' are local, 'c' is external",
     expected: {
-      inputs: {
-        c: { type: "unknown" },
-      },
+      inputs: [
+        { name: "c" },
+      ],
     },
   },
   {
@@ -283,22 +287,22 @@ export const testCases: TestCases[] = [
     description:
       "For expression with multiple variables - 'x' and 'y' are local",
     expected: {
-      inputs: {
-        list1: { type: "unknown" },
-        list2: { type: "unknown" },
-        z: { type: "unknown" },
-      },
+      inputs: [
+        { name: "list1" },
+        { name: "list2" },
+        { name: "z" },
+      ],
     },
   },
   {
     expression: "if condition then x else y",
     description: "If expression - All variables are external",
     expected: {
-      inputs: {
-        condition: { type: "unknown" },
-        x: { type: "unknown" },
-        y: { type: "unknown" },
-      },
+      inputs: [
+        { name: "condition" },
+        { name: "x" },
+        { name: "y" },
+      ],
     },
   },
 ];
