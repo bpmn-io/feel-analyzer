@@ -1,6 +1,6 @@
 {
   "name": "@bpmn-io/feel-analyzer",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Static FEEL expression analyzer",
   "license": "MIT",
   "type": "module",
