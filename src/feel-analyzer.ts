@@ -3,6 +3,7 @@ import { parser, trackVariables } from '@bpmn-io/lezer-feel';
 import type { AnalysisResult, Builtin } from './types';
 
 import { analyzeForInputs } from './analyzers/inputs';
+import { analyzeForFunctions } from './analyzers/functions';
 import { createContext } from './utils/create-context';
 
 export interface FeelAnalyzerOptions {
@@ -13,11 +14,11 @@ export interface FeelAnalyzerOptions {
 }
 
 export class FeelAnalyzer {
-  builtinNames: string[];
+  builtinNames: Set<string>;
   parser: typeof parser;
 
   constructor(options: Partial<FeelAnalyzerOptions> = {}) {
-    this.builtinNames = options.builtins?.map((builtin) => builtin.name) ?? [];
+    this.builtinNames = new Set(options.builtins?.map((b) => b.name) ?? []);
 
     const config: Record<string, unknown> = {
       top: options.dialect === 'unaryTests' ? 'UnaryTests' : 'Expression',
@@ -33,11 +34,13 @@ export class FeelAnalyzer {
   analyzeExpression(expression: string): AnalysisResult {
     const tree = this.parser.parse(expression);
 
-    const { inputs, hasErrors } = analyzeForInputs(tree.topNode, expression, new Set(this.builtinNames));
+    const { inputs, hasErrors } = analyzeForInputs(tree.topNode, expression, this.builtinNames);
+    const functions = analyzeForFunctions(tree.topNode, expression, this.builtinNames);
 
     return {
       valid: !hasErrors,
       inputs,
+      functions,
     };
   }
 }

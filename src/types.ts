@@ -50,6 +50,22 @@ export interface InputVariable {
 }
 
 /**
+ * A function invoked in a FEEL expression
+ */
+export interface InvokedFunction {
+
+  /**
+   * The function name
+   */
+  name: string;
+
+  /**
+   * Whether the function is a known builtin or user-defined
+   */
+  type: 'builtin' | 'user';
+}
+
+/**
  * Result of analyzing a FEEL expression
  */
 export interface AnalysisResult {
@@ -63,4 +79,9 @@ export interface AnalysisResult {
    * Input variables needed by the expression
    */
   inputs?: InputVariable[];
+
+  /**
+   * Functions invoked in the expression, sorted by name and deduplicated.
+   */
+  functions?: InvokedFunction[];
 }
