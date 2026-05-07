@@ -93,6 +93,30 @@ console.log(result.inputs);
 // ]
 ```
 
+### Invoked Functions
+
+The analyzer extracts all function invocations from the expression, sorted by name and deduplicated. Each function is classified as `builtin` or `user` based on the provided `builtins` list:
+
+```javascript
+import { FeelAnalyzer } from '@bpmn-io/feel-analyzer';
+import { camundaBuiltins, camundaReservedNameBuiltins } from '@camunda/feel-builtins';
+
+const analyzer = new FeelAnalyzer({
+  parserDialect: 'camunda',
+  builtins: camundaBuiltins,
+  reservedNameBuiltins: camundaReservedNameBuiltins
+});
+
+const result = analyzer.analyzeExpression('from json(sum(myHelper(x)))');
+
+console.log(result.functions);
+// [
+//   { name: 'from json', type: 'builtin' },
+//   { name: 'myHelper', type: 'user' },
+//   { name: 'sum', type: 'builtin' }
+// ]
+```
+
 ## Related
 
 - [@bpmn-io/lezer-feel](https://github.com/bpmn-io/lezer-feel) - FEEL language definition for the [Lezer](https://lezer.codemirror.net/) parser system
