@@ -6,6 +6,12 @@ All notable changes to [@bpmn-io/feel-analyzer](https://github.com/bpmn-io/feel-
 
 ___Note:__ Yet to be released changes appear here._
 
+## 0.2.1
+
+No user-facing changes.
+
+The library can now be consumed by both CommonJS and ES modules.
+
 ## 0.2.0
 
 * `FEAT`: extract called function names from expressions ([#6](https://github.com/bpmn-io/feel-analyzer/pull/6))
