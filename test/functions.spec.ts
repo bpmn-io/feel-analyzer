@@ -165,4 +165,76 @@ describe('functions', function () {
       ]);
     });
   });
+
+
+  describe('shadowing', function () {
+
+    let shadowingAnalyzer: FeelAnalyzer;
+
+    beforeEach(function () {
+      shadowingAnalyzer = new FeelAnalyzer({
+        builtins: [ { name: 'sum' } ],
+      });
+    });
+
+
+    it('should mark builtin shadowed by function parameter as user', function () {
+
+      // when
+      const result = shadowingAnalyzer.analyzeExpression('function(sum) sum(5)');
+
+      // then
+      expect(result.functions).to.deep.equal([
+        { name: 'sum', type: 'user' },
+      ]);
+    });
+
+
+    it('should mark builtin shadowed by context entry as user', function () {
+
+      // when
+      const result = shadowingAnalyzer.analyzeExpression('{sum: function(x) x + 1, result: sum(5)}');
+
+      // then
+      expect(result.functions).to.deep.equal([
+        { name: 'sum', type: 'user' },
+      ]);
+    });
+
+
+    it('should mark builtin shadowed by for iterator as user', function () {
+
+      // when
+      const result = shadowingAnalyzer.analyzeExpression('for sum in [function(x) x] return sum(5)');
+
+      // then
+      expect(result.functions).to.deep.equal([
+        { name: 'sum', type: 'user' },
+      ]);
+    });
+
+
+    it('should mark builtin shadowed by some quantifier as user', function () {
+
+      // when
+      const result = shadowingAnalyzer.analyzeExpression('some sum in [function(x) x] satisfies sum(5) = 5');
+
+      // then
+      expect(result.functions).to.deep.equal([
+        { name: 'sum', type: 'user' },
+      ]);
+    });
+
+
+    it('should mark builtin shadowed by every quantifier as user', function () {
+
+      // when
+      const result = shadowingAnalyzer.analyzeExpression('every sum in [function(x) x] satisfies sum(5) = 5');
+
+      // then
+      expect(result.functions).to.deep.equal([
+        { name: 'sum', type: 'user' },
+      ]);
+    });
+  });
 });
