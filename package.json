@@ -11,8 +11,9 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
@@ -21,7 +22,7 @@
   "scripts": {
     "all": "run-s lint test build",
     "lint": "eslint .",
-    "test": "mocha --node-option import=tsx test/**/*.spec.ts",
+    "test": "mocha --node-option import=tsx test/**/*.spec.ts test/**/*.spec.cjs",
     "build": "rollup -c",
     "prepare": "npm run build"
   },
