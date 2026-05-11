@@ -250,6 +250,30 @@ describe('functions', function () {
     });
 
 
+    it('should NOT upgrade builtin to user when name is shadowed as entry key', function () {
+
+      // when
+      const result = shadowingAnalyzer.analyzeExpression('{ sum: sum(z) }');
+
+      // then
+      expect(result.functions).to.deep.equal([
+        { name: 'sum', type: 'builtin' },
+      ]);
+    });
+
+
+    it('should NOT upgrade builtin to user when name is shadowed as entry key (grandchild)', function () {
+
+      // when
+      const result = shadowingAnalyzer.analyzeExpression('{ sum: { child: { test: sum(z) } } }');
+
+      // then
+      expect(result.functions).to.deep.equal([
+        { name: 'sum', type: 'builtin' },
+      ]);
+    });
+
+
     it('should mark name as user regardless of invocation order', function () {
 
       // when
