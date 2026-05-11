@@ -236,5 +236,29 @@ describe('functions', function () {
         { name: 'sum', type: 'user' },
       ]);
     });
+
+
+    it('should upgrade builtin to user when same name is shadowed later', function () {
+
+      // when
+      const result = shadowingAnalyzer.analyzeExpression('sum(x) + {sum: function(y) y, r: sum(z)}.r');
+
+      // then
+      expect(result.functions).to.deep.equal([
+        { name: 'sum', type: 'user' },
+      ]);
+    });
+
+
+    it('should mark name as user regardless of invocation order', function () {
+
+      // when
+      const result = shadowingAnalyzer.analyzeExpression('{sum: function(y) y, r: sum(z)}.r + sum(x)');
+
+      // then
+      expect(result.functions).to.deep.equal([
+        { name: 'sum', type: 'user' },
+      ]);
+    });
   });
 });

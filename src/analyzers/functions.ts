@@ -23,12 +23,20 @@ export function analyzeForFunctions(
 
   const recordInvocation = (funcNameNode: SyntaxNode) => {
     const name = nodeText(funcNameNode, source);
-    if (functions.has(name)) return;
-
     const type: InvokedFunction['type'] =
       !isInScope(name, scopes) && builtinNames.has(name) ? 'builtin' : 'user';
 
-    functions.set(name, { name, type });
+    const existing = functions.get(name);
+    if (!existing) {
+      functions.set(name, { name, type });
+      return;
+    }
+
+    // If the same name is invoked both as a builtin (outside any shadowing
+    // scope) and as a user binding (inside one), prefer 'user'.
+    if (existing.type === 'builtin' && type === 'user') {
+      existing.type = 'user';
+    }
   };
 
   const walk = (n: SyntaxNode) => {
