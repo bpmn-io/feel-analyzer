@@ -193,15 +193,17 @@ function containsErrorNodes(node: SyntaxNode): boolean {
     return true;
   }
 
-  let hasErrors = false;
+  let child = node.firstChild;
 
-  forEachChild(node, (child) => {
-    if (!hasErrors && containsErrorNodes(child)) {
-      hasErrors = true;
+  while (child) {
+    if (containsErrorNodes(child)) {
+      return true;
     }
-  });
 
-  return hasErrors;
+    child = child.nextSibling;
+  }
+
+  return false;
 }
 
 /**
