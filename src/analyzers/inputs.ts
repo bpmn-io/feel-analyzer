@@ -39,7 +39,7 @@ function extractInputNames(
 ): { inputs: string[]; hasErrors: boolean } {
   const inputs = new Set<string>();
   const localScopes: Set<string>[] = [ new Set() ];
-  let hasErrors = false;
+  const hasErrors = containsErrorNodes(node);
 
   function isExternal(name: string, filterCtx: FilterContext): boolean {
     return !isInScope(name, localScopes)
@@ -51,7 +51,6 @@ function extractInputNames(
     const { name: nodeName } = node;
 
     if (node.type.isError) {
-      hasErrors = true;
       return;
     }
 
@@ -172,7 +171,6 @@ function extractInputNames(
       const params = collectFunctionParameters(node, source);
 
       withScope(localScopes, params, () => {
-        if (hasErrors) return;
         const body = node.getChild('FunctionBody');
         if (body) collectInputs(body, 'none');
       });
@@ -188,6 +186,22 @@ function extractInputNames(
     inputs: Array.from(inputs).sort(),
     hasErrors,
   };
+}
+
+function containsErrorNodes(node: SyntaxNode): boolean {
+  if (node.type.isError) {
+    return true;
+  }
+
+  let hasErrors = false;
+
+  forEachChild(node, (child) => {
+    if (!hasErrors && containsErrorNodes(child)) {
+      hasErrors = true;
+    }
+  });
+
+  return hasErrors;
 }
 
 /**
