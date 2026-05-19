@@ -52,5 +52,21 @@ describe('FeelAnalyzer', function () {
       expect(result.inputs).to.deep.equal([{ name: 'backtick' }]);
     });
 
+    it('should detect syntax errors nested in all relevant branches', function () {
+      [
+        '=...',
+        'sum(=...)',
+        'a[=...]',
+        '{a: =...}',
+        'for x in =... return x',
+        'some x in =... satisfies x > 1',
+        'function(a) =...',
+      ].forEach((expression) => {
+        const result = camundaAnalyzer.analyzeExpression(expression);
+
+        expect(result.valid, `expected expression to be invalid: ${ expression }`).to.be.false;
+      });
+    });
+
   });
 });
