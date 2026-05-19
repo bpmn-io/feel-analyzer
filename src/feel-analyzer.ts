@@ -4,6 +4,7 @@ import type { AnalysisResult, Builtin } from './types';
 
 import { analyzeForInputs } from './analyzers/inputs';
 import { analyzeForFunctions } from './analyzers/functions';
+import { analyzeForValidity } from './analyzers/validity';
 import { createContext } from './utils/create-context';
 
 export interface FeelAnalyzerOptions {
@@ -34,11 +35,12 @@ export class FeelAnalyzer {
   analyzeExpression(expression: string): AnalysisResult {
     const tree = this.parser.parse(expression);
 
-    const { inputs, hasErrors } = analyzeForInputs(tree.topNode, expression, this.builtinNames);
+    const valid = analyzeForValidity(tree.topNode);
+    const inputs = analyzeForInputs(tree.topNode, expression, this.builtinNames);
     const functions = analyzeForFunctions(tree.topNode, expression, this.builtinNames);
 
     return {
-      valid: !hasErrors,
+      valid,
       inputs,
       functions,
     };

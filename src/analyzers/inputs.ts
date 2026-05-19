@@ -36,10 +36,9 @@ function extractInputNames(
     node: SyntaxNode,
     source: string,
     builtinNames: Set<string>,
-): { inputs: string[]; hasErrors: boolean } {
+): string[] {
   const inputs = new Set<string>();
   const localScopes: Set<string>[] = [ new Set() ];
-  const hasErrors = containsErrorNodes(node);
 
   function isExternal(name: string, filterCtx: FilterContext): boolean {
     return !isInScope(name, localScopes)
@@ -182,28 +181,7 @@ function extractInputNames(
 
   collectInputs(node);
 
-  return {
-    inputs: Array.from(inputs).sort(),
-    hasErrors,
-  };
-}
-
-function containsErrorNodes(node: SyntaxNode): boolean {
-  if (node.type.isError) {
-    return true;
-  }
-
-  let child = node.firstChild;
-
-  while (child) {
-    if (containsErrorNodes(child)) {
-      return true;
-    }
-
-    child = child.nextSibling;
-  }
-
-  return false;
+  return Array.from(inputs).sort();
 }
 
 /**
@@ -517,8 +495,8 @@ export function analyzeForInputs(
     node: SyntaxNode,
     source: string,
     builtinNames: Set<string>,
-): { inputs: InputVariable[]; hasErrors: boolean } {
-  const { inputs: collectedInputs, hasErrors } = extractInputNames(node, source, builtinNames);
+): InputVariable[] {
+  const collectedInputs = extractInputNames(node, source, builtinNames);
 
   const inputs = initializeInputVariables(collectedInputs);
 
@@ -531,5 +509,5 @@ export function analyzeForInputs(
   }
   inputs.sort((a, b) => a.name.localeCompare(b.name));
 
-  return { inputs, hasErrors };
+  return inputs;
 }
