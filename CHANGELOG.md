@@ -6,6 +6,10 @@ All notable changes to [@bpmn-io/feel-analyzer](https://github.com/bpmn-io/feel-
 
 ___Note:__ Yet to be released changes appear here._
 
+## 0.3.0
+
+* `FEAT`: add `validity` analyzer ([#10](https://github.com/bpmn-io/feel-analyzer/pull/10))
+
 ## 0.2.2
 
 * `FIX`: detect user-defined functions shadowing builtins ([#8](https://github.com/bpmn-io/feel-analyzer/pull/8))
