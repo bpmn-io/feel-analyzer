@@ -50,7 +50,7 @@ export interface InputVariable {
 }
 
 /**
- * A function invoked in a FEEL expression
+ * A function invocation in a FEEL expression
  */
 export interface InvokedFunction {
 
@@ -63,6 +63,16 @@ export interface InvokedFunction {
    * Whether the function is a known builtin or user-defined
    */
   type: 'builtin' | 'user';
+
+  /**
+   * Start offset of the function-name token
+   */
+  from: number;
+
+  /**
+   * End offset of the function-name token
+   */
+  to: number;
 }
 
 /**
@@ -81,7 +91,8 @@ export interface AnalysisResult {
   inputs?: InputVariable[];
 
   /**
-   * Functions invoked in the expression, sorted by name and deduplicated.
+   * Functions invoked in the expression. One entry per invocation,
+   * in source order.
    */
   functions?: InvokedFunction[];
 }

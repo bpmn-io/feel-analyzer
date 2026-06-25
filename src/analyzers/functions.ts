@@ -18,7 +18,7 @@ export function analyzeForFunctions(
     source: string,
     builtinNames: Set<string>,
 ): InvokedFunction[] {
-  const functions = new Map<string, InvokedFunction>();
+  const functions: InvokedFunction[] = [];
   const scopes: Set<string>[] = [];
 
   const recordInvocation = (funcNameNode: SyntaxNode) => {
@@ -26,17 +26,8 @@ export function analyzeForFunctions(
     const type: InvokedFunction['type'] =
       !isInScope(name, scopes) && builtinNames.has(name) ? 'builtin' : 'user';
 
-    const existing = functions.get(name);
-    if (!existing) {
-      functions.set(name, { name, type });
-      return;
-    }
-
-    // If the same name is invoked both as a builtin (outside any shadowing
-    // scope) and as a user binding (inside one), prefer 'user'.
-    if (existing.type === 'builtin' && type === 'user') {
-      existing.type = 'user';
-    }
+    const { from, to } = funcNameNode;
+    functions.push({ name, type, from, to });
   };
 
   const walk = (n: SyntaxNode) => {
@@ -99,5 +90,5 @@ export function analyzeForFunctions(
 
   walk(node);
 
-  return Array.from(functions.values()).sort((a, b) => a.name.localeCompare(b.name));
+  return functions.sort((a, b) => a.from - b.from);
 }
