@@ -65,12 +65,12 @@ export interface InvokedFunction {
   type: 'builtin' | 'user';
 
   /**
-   * Start offset of the function-name token
+   * Start offset (0-based, inclusive) of the function name in the expression
    */
   from: number;
 
   /**
-   * End offset of the function-name token
+   * End offset (0-based, exclusive) of the function name in the expression
    */
   to: number;
 }
