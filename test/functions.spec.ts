@@ -35,7 +35,7 @@ describe('functions', function () {
 
     // then
     expect(result.functions).to.deep.equal([
-      { name: 'sum', type: 'user' },
+      { name: 'sum', type: 'user', from: 0, to: 3 },
     ]);
   });
 
@@ -47,8 +47,8 @@ describe('functions', function () {
 
     // then
     expect(result.functions).to.deep.equal([
-      { name: 'count', type: 'user' },
-      { name: 'sum', type: 'user' },
+      { name: 'sum', type: 'user', from: 0, to: 3 },
+      { name: 'count', type: 'user', from: 4, to: 9 },
     ]);
   });
 
@@ -63,14 +63,15 @@ describe('functions', function () {
   });
 
 
-  it('should deduplicate repeated function calls', function () {
+  it('should return one entry per invocation (no deduplication)', function () {
 
     // when
     const result = analyzer.analyzeExpression('sum(a) + sum(b)');
 
     // then
     expect(result.functions).to.deep.equal([
-      { name: 'sum', type: 'user' },
+      { name: 'sum', type: 'user', from: 0, to: 3 },
+      { name: 'sum', type: 'user', from: 9, to: 12 },
     ]);
   });
 
@@ -82,9 +83,9 @@ describe('functions', function () {
 
     // then
     expect(result.functions).to.deep.equal([
-      { name: 'contains', type: 'user' },
-      { name: 'count', type: 'user' },
-      { name: 'sum', type: 'user' },
+      { name: 'contains', type: 'user', from: 3, to: 11 },
+      { name: 'sum', type: 'user', from: 25, to: 28 },
+      { name: 'count', type: 'user', from: 37, to: 42 },
     ]);
   });
 
@@ -96,7 +97,7 @@ describe('functions', function () {
 
     // then
     expect(result.functions).to.deep.equal([
-      { name: 'sum', type: 'user' },
+      { name: 'sum', type: 'user', from: 21, to: 24 },
     ]);
   });
 
@@ -108,7 +109,7 @@ describe('functions', function () {
 
     // then
     expect(result.functions).to.deep.equal([
-      { name: 'contains', type: 'user' },
+      { name: 'contains', type: 'user', from: 6, to: 14 },
     ]);
   });
 
@@ -122,7 +123,7 @@ describe('functions', function () {
 
       // then
       expect(result.functions).to.deep.equal([
-        { name: 'from json', type: 'builtin' },
+        { name: 'from json', type: 'builtin', from: 0, to: 9 },
       ]);
     });
 
@@ -134,8 +135,8 @@ describe('functions', function () {
 
       // then
       expect(result.functions).to.deep.equal([
-        { name: 'from json', type: 'builtin' },
-        { name: 'sum', type: 'builtin' },
+        { name: 'from json', type: 'builtin', from: 0, to: 9 },
+        { name: 'sum', type: 'builtin', from: 10, to: 13 },
       ]);
     });
 
@@ -147,8 +148,8 @@ describe('functions', function () {
 
       // then
       expect(result.functions).to.deep.equal([
-        { name: 'from json', type: 'builtin' },
-        { name: 'get or else', type: 'builtin' },
+        { name: 'get or else', type: 'builtin', from: 0, to: 11 },
+        { name: 'from json', type: 'builtin', from: 12, to: 21 },
       ]);
     });
 
@@ -160,8 +161,8 @@ describe('functions', function () {
 
       // then
       expect(result.functions).to.deep.equal([
-        { name: 'myHelper', type: 'user' },
-        { name: 'sum', type: 'builtin' },
+        { name: 'sum', type: 'builtin', from: 0, to: 3 },
+        { name: 'myHelper', type: 'user', from: 4, to: 12 },
       ]);
     });
   });
@@ -185,7 +186,7 @@ describe('functions', function () {
 
       // then
       expect(result.functions).to.deep.equal([
-        { name: 'sum', type: 'user' },
+        { name: 'sum', type: 'user', from: 14, to: 17 },
       ]);
     });
 
@@ -197,7 +198,7 @@ describe('functions', function () {
 
       // then
       expect(result.functions).to.deep.equal([
-        { name: 'sum', type: 'user' },
+        { name: 'sum', type: 'user', from: 33, to: 36 },
       ]);
     });
 
@@ -209,7 +210,7 @@ describe('functions', function () {
 
       // then
       expect(result.functions).to.deep.equal([
-        { name: 'sum', type: 'user' },
+        { name: 'sum', type: 'user', from: 34, to: 37 },
       ]);
     });
 
@@ -221,7 +222,7 @@ describe('functions', function () {
 
       // then
       expect(result.functions).to.deep.equal([
-        { name: 'sum', type: 'user' },
+        { name: 'sum', type: 'user', from: 38, to: 41 },
       ]);
     });
 
@@ -233,19 +234,20 @@ describe('functions', function () {
 
       // then
       expect(result.functions).to.deep.equal([
-        { name: 'sum', type: 'user' },
+        { name: 'sum', type: 'user', from: 39, to: 42 },
       ]);
     });
 
 
-    it('should upgrade builtin to user when same name is shadowed later', function () {
+    it('should type each invocation by the scope at its own position', function () {
 
       // when
       const result = shadowingAnalyzer.analyzeExpression('sum(x) + {sum: function(y) y, r: sum(z)}.r');
 
       // then
       expect(result.functions).to.deep.equal([
-        { name: 'sum', type: 'user' },
+        { name: 'sum', type: 'builtin', from: 0, to: 3 },
+        { name: 'sum', type: 'user', from: 33, to: 36 },
       ]);
     });
 
@@ -257,7 +259,7 @@ describe('functions', function () {
 
       // then
       expect(result.functions).to.deep.equal([
-        { name: 'sum', type: 'builtin' },
+        { name: 'sum', type: 'builtin', from: 7, to: 10 },
       ]);
     });
 
@@ -269,19 +271,20 @@ describe('functions', function () {
 
       // then
       expect(result.functions).to.deep.equal([
-        { name: 'sum', type: 'builtin' },
+        { name: 'sum', type: 'builtin', from: 24, to: 27 },
       ]);
     });
 
 
-    it('should mark name as user regardless of invocation order', function () {
+    it('should type invocations independently regardless of order', function () {
 
       // when
       const result = shadowingAnalyzer.analyzeExpression('{sum: function(y) y, r: sum(z)}.r + sum(x)');
 
       // then
       expect(result.functions).to.deep.equal([
-        { name: 'sum', type: 'user' },
+        { name: 'sum', type: 'user', from: 24, to: 27 },
+        { name: 'sum', type: 'builtin', from: 36, to: 39 },
       ]);
     });
   });
