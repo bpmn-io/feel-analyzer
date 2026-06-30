@@ -165,6 +165,19 @@ describe('functions', function () {
         { name: 'myHelper', type: 'user', from: 4, to: 12 },
       ]);
     });
+
+
+    it('should include backtick delimiters in position span for backtick-quoted names', function () {
+
+      // when
+      const expression = '`my func`(x)';
+      const result = camundaAnalyzer.analyzeExpression(expression);
+      const [ invocation ] = result.functions!;
+
+      // then
+      expect(invocation.name).to.equal('my func');
+      expect(expression.substring(invocation.from, invocation.to)).to.equal('`my func`');
+    });
   });
 
 
