@@ -6,6 +6,8 @@ All notable changes to [@bpmn-io/feel-analyzer](https://github.com/bpmn-io/feel-
 
 ___Note:__ Yet to be released changes appear here._
 
+## 0.4.0
+
 * `FEAT`: return invoked function position (`from`, `to`) per invocation, in source order ([#11](https://github.com/bpmn-io/feel-analyzer/pull/11))
 
 ## 0.3.0
