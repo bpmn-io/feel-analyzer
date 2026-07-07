@@ -63,7 +63,7 @@ export function collectPathParts(node: SyntaxNode, source: string): string[] {
   forEachChild(node, (child) => {
     if (child.name === 'PathExpression') {
       parts.push(...collectPathParts(child, source));
-    } else if (child.name === 'VariableName') {
+    } else if (child.name === 'VariableName' || child.name === 'PathName') {
       parts.push(nodeText(child, source));
     }
   });

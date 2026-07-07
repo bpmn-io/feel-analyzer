@@ -110,6 +110,15 @@ export const testCases: TestCases[] = [
       ],
     },
   },
+  {
+    expression: "list[item.x>2]",
+    description: "Filter on variable item path - 'list' item property tracked",
+    expected: {
+      inputs: [
+        { name: "list", type: "List", entries: [{ name: "x" }] },
+      ],
+    },
+  },
 
   {
     expression: "a + b.c",
