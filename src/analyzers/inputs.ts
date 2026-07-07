@@ -268,12 +268,7 @@ function trackFilterItemProperties(
     if (listVar.type !== 'List') return;
 
     if (node.name === 'PathExpression') {
-      const pathParts: string[] = [];
-      forEachChild(node, (child) => {
-        if (child.name === 'VariableName') {
-          pathParts.push(nodeText(child, source));
-        }
-      });
+      const pathParts = collectPathParts(node, source);
 
       // `item.prop` → record 'prop' as an item entry
       if (pathParts.length > 1 && pathParts[0] === 'item') {
