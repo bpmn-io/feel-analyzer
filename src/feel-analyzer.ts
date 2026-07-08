@@ -1,5 +1,7 @@
 import { parser, trackVariables } from '@bpmn-io/lezer-feel';
 
+import type { Tree } from '@lezer/common';
+
 import type { AnalysisResult, Builtin } from './types';
 
 import { analyzeForInputs } from './analyzers/inputs';
@@ -32,17 +34,19 @@ export class FeelAnalyzer {
 
     this.parser = parser.configure(config);
   }
+
   analyzeExpression(expression: string): AnalysisResult {
     const tree = this.parser.parse(expression);
+    return this.analyzeTree(tree, expression);
+  }
 
-    const valid = analyzeForValidity(tree.topNode);
-    const inputs = analyzeForInputs(tree.topNode, expression, this.builtinNames);
-    const functions = analyzeForFunctions(tree.topNode, expression, this.builtinNames);
+  analyzeTree(tree: Tree, source: string): AnalysisResult {
+    const node = tree.topNode;
 
     return {
-      valid,
-      inputs,
-      functions,
+      valid: analyzeForValidity(node),
+      inputs: analyzeForInputs(node, source, this.builtinNames),
+      functions: analyzeForFunctions(node, source, this.builtinNames),
     };
   }
 }
