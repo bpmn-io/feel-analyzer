@@ -69,4 +69,26 @@ describe('FeelAnalyzer', function () {
     });
 
   });
+
+
+  describe('analyzeTree', function () {
+
+    it('should analyze an already-parsed tree', function () {
+
+      // given
+      const expression = 'from json("x") + b';
+      const tree = analyzer.parser.parse(expression);
+
+      // when
+      const result = analyzer.analyzeTree(tree, expression);
+
+      // then
+      expect(result).to.deep.equal({
+        valid: true,
+        inputs: [ { name: 'b' }, { name: 'from json' } ],
+        functions: [ { name: 'from json', type: 'user', from: 0, to: 9 } ],
+      });
+    });
+
+  });
 });
