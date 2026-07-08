@@ -117,6 +117,21 @@ console.log(result.functions);
 // ]
 ```
 
+### Analyzing an Already-Parsed Tree
+
+If you already have a parsed syntax tree—for example from a CodeMirror editor using the same parser—you can analyze it directly with `analyzeTree`, avoiding a redundant parse:
+
+```javascript
+const analyzer = new FeelAnalyzer();
+
+const expression = 'x + y';
+const tree = analyzer.parser.parse(expression);
+
+const result = analyzer.analyzeTree(tree, expression);
+```
+
+The tree must be produced by a compatibly-configured parser, ideally `analyzer.parser`. A tree parsed with a different configuration (e.g. `dialect`, `parserDialect`, or `reservedNameBuiltins`) may yield incorrect results.
+
 ## Related
 
 - [@bpmn-io/lezer-feel](https://github.com/bpmn-io/lezer-feel) - FEEL language definition for the [Lezer](https://lezer.codemirror.net/) parser system
