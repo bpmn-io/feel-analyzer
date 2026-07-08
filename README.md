@@ -130,7 +130,7 @@ const tree = analyzer.parser.parse(expression);
 const result = analyzer.analyzeTree(tree, expression);
 ```
 
-The tree must be produced by a compatibly-configured parser, ideally `analyzer.parser`. A tree parsed with a different configuration (e.g. `dialect`, `parserDialect`, or `reservedNameBuiltins`) may yield incorrect results.
+The tree must come from a parser configured consistently with the analyzer (same `dialect`, `parserDialect`, and `reservedNameBuiltins`) - such as the provided `analyzer.parser`. A tree parsed with a different configuration may yield incorrect results.
 
 ## Related
 
