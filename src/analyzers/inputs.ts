@@ -10,6 +10,7 @@ import {
   extractContextKeys,
   findVariable,
   forEachChild,
+  getFilterBase,
   hasContextBase,
   isInScope,
   nodeText,
@@ -71,8 +72,12 @@ function extractInputNames(
     }
 
     if (nodeName === 'PathExpression') {
+      const filterBase = getFilterBase(node);
+
       if (hasContextBase(node)) {
         forEachChild(node, (child) => collectInputs(child, filterCtx));
+      } else if (filterBase) {
+        collectInputs(filterBase, filterCtx);
       } else {
         const pathParts = collectPathParts(node, source);
         if (pathParts.length > 0 && isExternal(pathParts[0], filterCtx)) {
@@ -341,7 +346,7 @@ function inferTypes(
 
   if (nodeName === 'PathExpression') {
     const first = node.firstChild;
-    if (first?.name === 'Context' || first?.name === 'PathExpression') {
+    if (first?.name === 'Context' || first?.name === 'PathExpression' || first?.name === 'FilterExpression') {
       inferTypes(first, source, inputs, localScopes, filterCtx);
       return;
     }

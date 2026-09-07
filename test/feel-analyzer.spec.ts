@@ -30,6 +30,20 @@ describe('FeelAnalyzer', function () {
     });
 
 
+    it('should analyze property access after indexed access', function () {
+      [
+        'foo[1].bar',
+        'foo[1].bar.baz',
+      ].forEach((expression) => {
+        const result = analyzer.analyzeExpression(expression);
+
+        expect(result.inputs, expression).to.deep.equal([
+          { name: 'foo', type: 'List' },
+        ]);
+      });
+    });
+
+
     it('should not parse camunda reserved name builtins', function () {
 
       const result = analyzer.analyzeExpression('get or else(a, b)');

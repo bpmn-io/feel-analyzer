@@ -71,6 +71,17 @@ export function collectPathParts(node: SyntaxNode, source: string): string[] {
 }
 
 /**
+ * Find a FilterExpression used as the base of a PathExpression
+ */
+export function getFilterBase(node: SyntaxNode): SyntaxNode | null {
+  const firstChild = node.firstChild;
+  if (!firstChild) return null;
+  if (firstChild.name === 'FilterExpression') return firstChild;
+  if (firstChild.name === 'PathExpression') return getFilterBase(firstChild);
+  return null;
+}
+
+/**
  * Check if a PathExpression node has a Context as its base
  */
 export function hasContextBase(node: SyntaxNode): boolean {
