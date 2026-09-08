@@ -6,6 +6,10 @@ All notable changes to [@bpmn-io/feel-analyzer](https://github.com/bpmn-io/feel-
 
 ___Note:__ Yet to be released changes appear here._
 
+## 0.5.1
+
+* `FIX`: correctly analyze paths following indexed access ([#14](https://github.com/bpmn-io/feel-analyzer/pull/14))
+
 ## 0.5.0
 
 * `FEAT`: add `analyzeTree` API to analyze an already-parsed tree ([#13](https://github.com/bpmn-io/feel-analyzer/pull/13))
